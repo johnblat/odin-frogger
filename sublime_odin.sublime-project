@@ -1,0 +1,38 @@
+{
+	"folders":
+	[
+		{
+			"path": ".",
+		},
+		{
+			"path": "C:\\odin-windows-amd64-dev-2025-03\\vendor\\raylib",
+		},
+		{
+			"path": "C:\\odin-windows-amd64-dev-2025-03\\core"
+		},
+	],
+	"build_systems":
+	[
+		{
+			"name": "sublime_odin_template",
+			"cmd": "odin run .",
+			"file_regex": "^(.+)\\(([0-9]+):([0-9]+)\\) (.+)$",
+		},
+		{
+			"name": "odin build debug",
+			"cmd": "odin build .  -debug -out:frogger.exe",
+			"file_regex": "^(.+)\\(([0-9]+):([0-9]+)\\) (.+)$",
+		}
+	],
+	"settings":
+	{
+		"auto_complete": false,
+		"LSP":
+		{
+			"odin":
+			{
+				"enabled": true,
+			},
+		},
+	},
+}

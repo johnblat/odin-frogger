@@ -1,0 +1,4 @@
+*.rdi.old
+*.rdi.temp
+*.exe
+*.pdb
