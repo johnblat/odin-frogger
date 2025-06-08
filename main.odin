@@ -16,6 +16,7 @@ main :: proc () {
 
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	rl.InitWindow(i32(initial_window_width), i32(initial_window_height), "Frogger [For Educational Purposes Only]")
+	rl.SetTargetFPS(60)
 
 	game_screen_width  : i32 = cell_size * number_of_grid_cells_on_axis_x
 	game_screen_height : i32 = cell_size * number_of_grid_cells_on_axis_y
@@ -24,7 +25,6 @@ main :: proc () {
 	rl.SetTextureFilter(target.texture, rl.TextureFilter.BILINEAR)
 
 
-	rl.SetTargetFPS(60)
 
 	frogger_start_pos := [2]f32{7,13}
 	frogger_pos := frogger_start_pos
@@ -33,72 +33,43 @@ main :: proc () {
 	frogger_move_lerp_start_pos : [2]f32
 	frogger_move_lerp_end_pos   : [2]f32
 
+	end_goal_positions := [5][2]f32{
+		{.5,  1},
+		{3.5,  1},
+		{6.5,  1},
+		{9.5, 1},
+		{12.5, 1},
+	}
+
 	debug_show_grid := false
 
-	for !rl.WindowShouldClose() {
+
+	for !rl.WindowShouldClose() 
+	{
 		
 		// gameplay
 
-		can_frogger_start_hopping := frogger_move_lerp_timer <= 0 
+		can_frogger_request_move := frogger_move_lerp_timer <= 0 
 
-		if can_frogger_start_hopping  
+		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
 
 			if rl.IsKeyPressed(.LEFT) 
 			{
-				move_direction.x = -1
-				frogger_next_pos_x := frogger_pos.x - 1
-				would_frogger_be_out_of_bounds_on_next_move := frogger_next_pos_x < 0
-
-				if !would_frogger_be_out_of_bounds_on_next_move {
-					frogger_move_lerp_timer = frogger_move_lerp_duration
-					frogger_move_lerp_start_pos = frogger_pos
-					frogger_move_lerp_end_pos = frogger_pos
-					frogger_move_lerp_end_pos.x -= 1
-				}
+				frogger_move_direction.x = -1
 			} 
 			else if rl.IsKeyPressed(.RIGHT) 
 			{
-				move_direction.x = 1
-
-				frogger_next_pos_x := frogger_pos.x + 1
-				would_frogger_be_out_of_bounds_on_next_move := frogger_next_pos_x >= f32(number_of_grid_cells_on_axis_x)
-				
-				if !would_frogger_be_out_of_bounds_on_next_move {
-					frogger_move_lerp_timer = frogger_move_lerp_duration
-					frogger_move_lerp_start_pos = frogger_pos
-					frogger_move_lerp_end_pos = frogger_pos
-					frogger_move_lerp_end_pos.x += 1
-				}
+				frogger_move_direction.x = 1
 			} 
 			else if rl.IsKeyPressed(.UP) 
 			{
-				move_direction.y = -1
-
-				frogger_next_pos_y := frogger_pos.y - 1
-				would_frogger_be_out_of_bounds_on_next_move := frogger_next_pos_y < 0
-
-				if !would_frogger_be_out_of_bounds_on_next_move {
-					frogger_move_lerp_timer = frogger_move_lerp_duration
-					frogger_move_lerp_start_pos = frogger_pos
-					frogger_move_lerp_end_pos = frogger_pos
-					frogger_move_lerp_end_pos.y -= 1					
-				}
+				frogger_move_direction.y = -1
 			} 
 			else if rl.IsKeyPressed(.DOWN) 
 			{
-				move_direction.y = 1
-
-				frogger_next_pos_y := frogger_pos.y + 1
-				would_frogger_be_out_of_bounds_on_next_move := frogger_next_pos_y >= f32(number_of_grid_cells_on_axis_x)
-
-				if !would_frogger_be_out_of_bounds_on_next_move {
-					frogger_move_lerp_timer = frogger_move_lerp_duration
-					frogger_move_lerp_start_pos = frogger_pos
-					frogger_move_lerp_end_pos = frogger_pos
-					frogger_move_lerp_end_pos.y += 1					
-				}
+				frogger_move_direction.y = 1
 			}
 
 			did_frogger_request_move := frogger_move_direction != [2]f32{0,0}
@@ -109,7 +80,8 @@ main :: proc () {
 				
 				will_frogger_be_out_of_bounds_on_next_move := frogger_next_pos.x < 0 || frogger_next_pos.x >= f32(number_of_grid_cells_on_axis_x) || frogger_next_pos.y < 0 || frogger_next_pos.y > f32(number_of_grid_cells_on_axis_y)
 
-				if !will_frogger_be_out_of_bounds_on_next_move {
+				if !will_frogger_be_out_of_bounds_on_next_move 
+				{
 					frogger_move_lerp_timer = frogger_move_lerp_duration
 					frogger_move_lerp_start_pos = frogger_pos
 					frogger_move_lerp_end_pos = frogger_next_pos
@@ -127,6 +99,7 @@ main :: proc () {
 			frogger_pos.x = (1.0 - t) * frogger_move_lerp_start_pos.x + t * frogger_move_lerp_end_pos.x
 			frogger_pos.y = (1.0 - t) * frogger_move_lerp_start_pos.y + t * frogger_move_lerp_end_pos.y
 		}
+		
 
 		// debug options
 		if rl.IsKeyPressed(.F1) {
@@ -156,7 +129,12 @@ main :: proc () {
 				}
 				road := [4]f32{0, 8, 14, 5}
 				river := [4]f32{0, 2, 14, 5}
-				riverbed := [4]f32{0,0, 14,2}
+				riverbed := [4]f32{0, 0, 14,2}
+				end_goals := [5][4]f32{}
+
+				for end_goal_position, i in end_goal_positions {
+					end_goals[i] = [4]f32{end_goal_position.x, end_goal_position.y, 1, 1}
+				}
 
 				for sw in sidewalks {
 					sw_rectangle := sw * f32(cell_size)
@@ -170,6 +148,11 @@ main :: proc () {
 				rl.DrawRectangleRec(transmute(rl.Rectangle)road_rectangle, rl.BLACK)
 				rl.DrawRectangleRec(transmute(rl.Rectangle)river_rectangle, rl.BLUE)
 				rl.DrawRectangleRec(transmute(rl.Rectangle)riverbed_rectangle, rl.LIME)
+
+				for eg in end_goals {
+					eg_rectangle := eg * f32(cell_size)
+					rl.DrawRectangleRec(transmute(rl.Rectangle)eg_rectangle, rl.DARKPURPLE)
+				}
 			}
 
 			{ // draw frogger
