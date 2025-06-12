@@ -1,0 +1,9 @@
+// raddbg 0.9.19 project file
+
+recent_file: path: "main.odin"
+target:
+{
+  executable: "frogger.exe"
+  working_directory: ""
+  enabled: 1
+}
