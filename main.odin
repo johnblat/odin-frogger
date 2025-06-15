@@ -5,6 +5,16 @@ import rl "vendor:raylib"
 // https://forum.sublimetext.com/t/my-sublime-text-windows-cheat-sheet/8411
 
 
+draw_rectangle_on_grid :: proc(rectangle: rl.Rectangle, color: rl.Color, cell_size: f32)
+{
+	render_rectangle := rl.Rectangle {
+		rectangle.x      * cell_size,
+		rectangle.y      * cell_size,
+		rectangle.width  * cell_size,
+		rectangle.height * cell_size,
+	}
+	rl.DrawRectangleRec(render_rectangle, color)
+}
 
 
 main :: proc () {
@@ -28,19 +38,21 @@ main :: proc () {
 	game_render_target := rl.LoadRenderTexture(game_screen_width, game_screen_height)
 	rl.SetTextureFilter(game_render_target.texture, rl.TextureFilter.BILINEAR)
 
-	frogger_start_pos := [2]f32{7,7}
+	frogger_start_pos := [2]f32{7,13}
 	frogger_pos := frogger_start_pos
 	frogger_move_lerp_timer  : f32 = 0
 	frogger_move_lerp_duration   : f32 = 0.06
 	frogger_move_lerp_start_pos : [2]f32
 	frogger_move_lerp_end_pos   : [2]f32
 
-	lilypad_end_goal_positions := [5][2]f32{
-		{.5,  1},
-		{3.5,  1},
-		{6.5,  1},
-		{9.5, 1},
-		{12.5, 1},
+	is_frogs_on_lilypad := [5]bool{}
+
+	lilypad_end_goals := [5]rl.Rectangle{
+		{.5,   1, 1, 1},
+		{3.5,  1, 1, 1},
+		{6.5,  1, 1, 1},
+		{9.5,  1, 1, 1},
+		{12.5, 1, 1, 1},
 	}
 
 	floating_logs := [?][4]f32{
@@ -155,9 +167,11 @@ main :: proc () {
 		rl.LIGHTGRAY,
 	}
 
-	river := [4]f32{0, 2, 14, 5}
+	river := rl.Rectangle{0, 2, 14, 5}
+	riverbed := rl.Rectangle{0, 0, 14,2}
 
 	debug_show_grid := false
+	is_frogger_unkillable := false
 
 
 	for !rl.WindowShouldClose() 
@@ -226,7 +240,8 @@ main :: proc () {
 				log_move_speed : f32 = floating_logs_speed[i]
 				log_move_amount := log_move_speed * rl.GetFrameTime()
 				log.x += log_move_amount
-				if log.x > f32(number_of_grid_cells_on_axis_x) + 1 {
+				if log.x > f32(number_of_grid_cells_on_axis_x) + 1 
+				{
 					log.x = 0 - log[2] - 1
 				}
 			}
@@ -253,7 +268,7 @@ main :: proc () {
 			}
 		}
 
-		{
+		{ // turtles
 			for &turtle, i in turtles
 			{
 				turtle_move_speed : f32 = turtles_speed[i]
@@ -276,34 +291,57 @@ main :: proc () {
 
 		{ // move frogger if center is on log or turtles
 			frogger_center_pos := [2]f32{frogger_pos.x + 0.5, frogger_pos.y + 0.5}
-			for log, i in floating_logs {
+			for log, i in floating_logs 
+			{
 				is_frogger_center_pos_inside_log_rectangle := rl.CheckCollisionPointRec(frogger_center_pos, transmute(rl.Rectangle) log)
 				is_frogger_moving := frogger_move_lerp_timer > 0
-				should_frogger_move_with_log := !is_frogger_moving && is_frogger_center_pos_inside_log_rectangle 
+				should_frogger_move_with_log := is_frogger_center_pos_inside_log_rectangle 
 				
-				if should_frogger_move_with_log {
+				if should_frogger_move_with_log 
+				{
 					log_move_speed : f32 = floating_logs_speed[i]
 					log_move_amount := log_move_speed * rl.GetFrameTime()
 					frogger_pos.x += log_move_amount
+					frogger_move_lerp_end_pos.x += log_move_amount
+
 				}
 			}
 
-			for turtle, i in turtles {
+			for turtle, i in turtles 
+			{
 				is_frogger_center_pos_inside_turtle_rectangle := rl.CheckCollisionPointRec(frogger_center_pos, transmute(rl.Rectangle) turtle)
 				is_frogger_moving := frogger_move_lerp_timer > 0
-				should_frogger_move_with_turtle := !is_frogger_moving && is_frogger_center_pos_inside_turtle_rectangle 
+				should_frogger_move_with_turtle := is_frogger_center_pos_inside_turtle_rectangle 
 				
-				if should_frogger_move_with_turtle {
+				if should_frogger_move_with_turtle 
+				{
 					turtle_move_speed : f32 = turtles_speed[i]
 					turtle_move_amount := turtle_move_speed * rl.GetFrameTime()
 					frogger_pos.x += turtle_move_amount
+					frogger_move_lerp_end_pos.x += turtle_move_amount
+
+				}
+			}
+		}
+
+		{ // win conditions
+			for lp, i in lilypad_end_goals 
+			{	
+				frogger_center_pos := frogger_pos + 0.5
+				is_frogger_on_lilypad := rl.CheckCollisionPointRec(frogger_center_pos, lp)
+				is_there_already_a_frog_here := is_frogs_on_lilypad[i]
+				if is_frogger_on_lilypad && !is_there_already_a_frog_here
+				{
+					is_frogs_on_lilypad[i] = true
+					frogger_pos = frogger_start_pos
 				}
 			}
 		}
 
 		{ // game over
 			is_frogger_out_of_bounds := frogger_pos.x < 0 || frogger_pos.x >= f32(number_of_grid_cells_on_axis_x) || frogger_pos.y < 0 || frogger_pos.y > f32(number_of_grid_cells_on_axis_y)
-			if is_frogger_out_of_bounds {
+			if is_frogger_out_of_bounds 
+			{
 				frogger_pos = frogger_start_pos
 			}
 
@@ -323,6 +361,13 @@ main :: proc () {
 			is_frogger_moving := frogger_move_lerp_timer > 0
 			river_rect := transmute(rl.Rectangle)river
 			is_frogger_in_river_region := rl.CheckCollisionPointRec(frogger_center_pos, river_rect)	
+			is_frogger_in_riverbed := rl.CheckCollisionPointRec(frogger_center_pos, riverbed)
+
+			is_frogger_die_in_riverbed := is_frogger_in_riverbed && !is_frogger_moving
+			if is_frogger_die_in_riverbed
+			{
+				frogger_pos = frogger_start_pos
+			}
 
 			for log in floating_logs
 			{
@@ -350,13 +395,20 @@ main :: proc () {
 			{
 				frogger_pos = frogger_start_pos
 			}
+
 		}
 
+		{ // debug options
+			if rl.IsKeyPressed(.F1) 
+			{
+				debug_show_grid = !debug_show_grid
+			}
 
-		// debug options
-		if rl.IsKeyPressed(.F1) 
-		{
-			debug_show_grid = !debug_show_grid
+			if rl.IsKeyPressed(.F2)
+			{
+				is_frogger_unkillable = !is_frogger_unkillable
+			}
+
 		}
 
 
@@ -364,8 +416,6 @@ main :: proc () {
 
 		screen_width := f32(rl.GetScreenWidth())
 		screen_height := f32(rl.GetScreenHeight())
-
-		scale := min(screen_width/f32(game_screen_width), screen_height/f32(game_screen_height))
 
 		// NOTE(jblat): For mouse, see: https://github.com/raysan5/raylib/blob/master/examples/core/core_window_letterbox.c
 
@@ -376,37 +426,26 @@ main :: proc () {
 			rl.ClearBackground(rl.LIGHTGRAY) 
 
 			{ // draw background art
-				sidewalks := [2][4]f32{
+				sidewalks := [2]rl.Rectangle{
 					{ 0, 13, 14, 1 },
 					{ 0, 7,  14, 1 }
 				}
-				road     := [4]f32{0, 8, 14, 5}
-				riverbed := [4]f32{0, 0, 14,2}
-				lilypads := [5][4]f32{}
-
-				for lilypad_position, i in lilypad_end_goal_positions 
-				{
-					lilypads[i] = [4]f32{lilypad_position.x, lilypad_position.y, 1, 1}
-				}
+				road     := rl.Rectangle{0, 8, 14, 5}
 
 				for sw in sidewalks 
 				{
-					sw_rectangle := sw * f32(cell_size)
-					rl.DrawRectangleRec(transmute(rl.Rectangle)sw_rectangle, rl.PURPLE)
+					draw_rectangle_on_grid(sw, rl.PURPLE, f32(cell_size))
 				}
 
-				road_rectangle     := road * f32(cell_size)
-				river_rectangle    := river * f32(cell_size)
-				riverbed_rectangle := riverbed * f32(cell_size)
 
-				rl.DrawRectangleRec(transmute(rl.Rectangle)road_rectangle, rl.BLACK)
-				rl.DrawRectangleRec(transmute(rl.Rectangle)river_rectangle, rl.BLUE)
-				rl.DrawRectangleRec(transmute(rl.Rectangle)riverbed_rectangle, rl.LIME)
+				draw_rectangle_on_grid(road, rl.BLACK, f32(cell_size))
+				draw_rectangle_on_grid(river, rl.DARKBLUE, f32(cell_size))
+				draw_rectangle_on_grid(riverbed, rl.LIME, f32(cell_size))
 
-				for lp in lilypads 
+				for lp in lilypad_end_goals
 				{
-					lp_rectangle := lp * f32(cell_size)
-					rl.DrawRectangleRec(transmute(rl.Rectangle)lp_rectangle, rl.DARKPURPLE)
+					draw_rectangle_on_grid(lp, rl.DARKPURPLE, f32(cell_size))
+
 				}
 			}
 
@@ -454,11 +493,26 @@ main :: proc () {
 				rl.DrawRectangleRec(transmute(rl.Rectangle)frogger_rectangle, rl.GREEN)
 				rl.DrawRectangleLinesEx(transmute(rl.Rectangle)frogger_rectangle, 4, rl.DARKGREEN)
 			}
+
+			{ // draw frogs on lilypads
+				for lp, i in lilypad_end_goals
+				{	
+					is_there_a_frog_on_this_lilypad := is_frogs_on_lilypad[i]
+					if is_there_a_frog_on_this_lilypad
+					{
+						frog_rectangle := lp
+						frog_rectangle.x += 0.1
+						frog_rectangle.y += 0.1
+						frog_rectangle.width  -= 0.2
+						frog_rectangle.height -= 0.2
+
+						draw_rectangle_on_grid(frog_rectangle, rl.GREEN, f32(cell_size))
+					}
+				}
+			}
 	
 			if debug_show_grid 
-			{ 
-				// draw grid
-				
+			{ 	
 				for x : i32 = 0; x < number_of_grid_cells_on_axis_x; x += 1 
 				{
 					render_x := f32(x * cell_size)
@@ -474,7 +528,6 @@ main :: proc () {
 					render_end_x := f32(game_screen_width)
 					rl.DrawLineV([2]f32{render_start_x, render_y}, [2]f32{render_end_x, render_y}, rl.BLACK)
 				}
-
 			}			
 		}
 
@@ -486,6 +539,8 @@ main :: proc () {
 
 			src := rl.Rectangle{ 0, 0, f32(game_render_target.texture.width), f32(-game_render_target.texture.height) }
 			
+			scale := min(screen_width/f32(game_screen_width), screen_height/f32(game_screen_height))
+
 			window_midpoint_x    := screen_width -  (f32(game_screen_width)   * scale) / 2
 			window_midpoint_y    := screen_height - (f32(game_screen_height)  * scale) / 2
 			window_scaled_width  := f32(game_screen_width)  * scale
