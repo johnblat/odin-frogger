@@ -1,9 +1,15 @@
 // raddbg 0.9.19 project file
 
+recent_file: path: "src/game.odin"
 recent_file: path: "main.odin"
 target:
 {
   executable: "frogger.exe"
+  working_directory: ""
+}
+target:
+{
+  executable: "build/hot_reload/game_hot_reload.exe"
   working_directory: ""
   enabled: 1
 }
