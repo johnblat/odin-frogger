@@ -109,7 +109,9 @@ draw_sprite_sheet_clip_on_grid :: proc(sprite_sheet: rl.Texture2D, src_grid_pos,
 	src_rect := get_grid_cell_rectangle(src_grid_pos, src_cell_size)
 	dst_rect := get_grid_cell_rectangle(dst_grid_pos, dst_cell_size)
 	dst_midpoint := [2]f32{dst_rect.width / 2, dst_rect.height / 2}
-	rl.DrawTexturePro(sprite_sheet, src_rect, dst_rect, dst_midpoint, rotation, rl.WHITE)
+	dst_rect.x += dst_midpoint.x
+	dst_rect.y += dst_midpoint.y
+	rl.DrawTexturePro(sprite_sheet, src_rect, dst_rect, [2]f32{dst_midpoint.x, dst_midpoint.y}, rotation, rl.WHITE)
 }
 
 
@@ -362,11 +364,19 @@ game_init :: proc()
 }
 
 
+frogger_anim_timer : f32 = 0
+
 @(export)
 game_update :: proc()
 {
 	frogger_start_pos := [2]f32{7,14}
 	frogger_move_lerp_duration : f32 = 0.06
+
+	frogger_anim_frames := [?][2]f32{
+		{0,2}, {0,0}, {0,1}, {0,2}
+	}
+	frogger_anim_fps : f32 = 8
+	frogger_anim_current_frame : int = 0 
 
 	river := rl.Rectangle{0, 2, 14, 5}
 	riverbed := rl.Rectangle{0, 0, 14,2}
@@ -440,6 +450,10 @@ game_update :: proc()
 		gmem.frogger_pos.y = (1.0 - t) * gmem.frogger_move_lerp_start_pos.y + t * gmem.frogger_move_lerp_end_pos.y
 	}
 
+	{ // frogger animation
+
+	}
+
 	{ // move logs
 		for &log, i in gmem.floating_logs 
 		{
@@ -475,6 +489,13 @@ game_update :: proc()
 	}
 
 	{ // turtles
+		// FIXME(jblat): This runs into the problem i noticed in the online clone where river objects start to overlap
+		// i believe what happens is that the independent object overshoots and the immediately warps to the other side
+		// because we are moving by delta time here. so there will often be slight variations in how much more a thing
+		// will go off to the side
+
+		// even the overshoot doesn't fix this, so im wondering if i can just have a single offset_x value that all of these things positions will
+		// be derived from in some way so they are all consistent
 		for &turtle, i in gmem.turtles
 		{
 			turtle_move_speed : f32 = gmem.turtles_speed[i]
@@ -486,7 +507,8 @@ game_update :: proc()
 
 			if should_warp_to_right_side_of_screen
 			{
-				turtle.x = f32(gmem.number_of_grid_cells_on_axis_x) + turtle[2]
+				turtle_overshoot_amount : f32 = turtle.x + turtle[2] 
+				turtle.x = f32(gmem.number_of_grid_cells_on_axis_x) + turtle[2] - turtle_overshoot_amount
 			}
 			else if should_warp_to_left_side_of_screen 
 			{
@@ -692,15 +714,13 @@ game_update :: proc()
 		}
 
 		{ // draw frogger
+			// gmem.frogger_sprite_rotation += 1
 			frogger_cell_rectangle := [4]f32{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-			frogger_cell_rectangle.x += 0.1
-			frogger_cell_rectangle[2] -= 0.2
-			frogger_cell_rectangle.y += 0.1
-			frogger_cell_rectangle[3] -= 0.2
 
-			// frogger_rectangle := frogger_cell_rectangle * gmem.cell_size
+
+			frogger_rectangle := frogger_cell_rectangle * gmem.cell_size
 			// rl.DrawRectangleRec(transmute(rl.Rectangle)frogger_rectangle, rl.GREEN)
-			// rl.DrawRectangleLinesEx(transmute(rl.Rectangle)frogger_rectangle, 4, rl.DARKGREEN)
+			rl.DrawRectangleLinesEx(transmute(rl.Rectangle)frogger_rectangle, 4, rl.DARKGREEN)
 
 			frogger_sprite_src_pos := [2]f32{2,0}
 			draw_sprite_sheet_clip_on_grid(gmem.texture_sprite_sheet, frogger_sprite_src_pos, gmem.frogger_pos, sprite_sheet_cell_size, gmem.cell_size, gmem.frogger_sprite_rotation)
