@@ -1,6 +1,7 @@
 package game
 
 import rl "vendor:raylib"
+import "core:math"
 
 image_data_sprite_sheet := #load("frogger_sprite_sheet.png")
 image_data_background   := #load("frogger_background_modified.png")
@@ -40,6 +41,7 @@ Game_Memory :: struct
 	// DEBUG
 	dbg_show_grid : bool,
 	dbg_is_frogger_unkillable : bool,
+	dbg_show_entity_bounding_rectangles : bool,
 
 	// GAME
 
@@ -79,15 +81,30 @@ lilypad_end_goals := [5]rl.Rectangle{
 }
 
 
-draw_rectangle_on_grid :: proc(rectangle: rl.Rectangle, color: rl.Color, cell_size: f32)
+get_rectangle_on_grid :: proc(rectangle: rl.Rectangle, cell_size: f32) -> rl.Rectangle
 {
-	render_rectangle := rl.Rectangle {
+	ret := rl.Rectangle {
 		rectangle.x      * cell_size,
 		rectangle.y      * cell_size,
 		rectangle.width  * cell_size,
 		rectangle.height * cell_size,
 	}
+
+	return ret
+}
+
+
+draw_rectangle_on_grid :: proc(rectangle: rl.Rectangle, color: rl.Color, cell_size: f32)
+{
+	render_rectangle := get_rectangle_on_grid(rectangle, cell_size)
 	rl.DrawRectangleRec(render_rectangle, color)
+}
+
+
+draw_rectangle_lines_on_grid :: proc(rectangle: rl.Rectangle, line_thick: f32, color: rl.Color, cell_size: f32)
+{
+	render_rectangle := get_rectangle_on_grid(rectangle, cell_size)
+	rl.DrawRectangleLinesEx(render_rectangle, line_thick, color)
 }
 
 
@@ -364,24 +381,25 @@ game_init :: proc()
 }
 
 
-frogger_anim_timer : f32 = 0
+frogger_anim_duration : f32 = 0.25
+frogger_anim_timer : f32 = frogger_anim_duration
+
 
 @(export)
 game_update :: proc()
 {
+	frame_time_uncapped := rl.GetFrameTime()
+	frame_time := min(frame_time_uncapped, f32(1.0/60.0))
+
 	frogger_start_pos := [2]f32{7,14}
-	frogger_move_lerp_duration : f32 = 0.06
+	frogger_move_lerp_duration : f32 = 0.08
 
 	frogger_anim_frames := [?][2]f32{
-		{0,2}, {0,0}, {0,1}, {0,2}
+		{0,0}, {1,0}, {0,0}, {2,0}
 	}
-	frogger_anim_fps : f32 = 8
-	frogger_anim_current_frame : int = 0 
 
-	river := rl.Rectangle{0, 2, 14, 5}
+	river := rl.Rectangle{0, 2, 14, 6}
 	riverbed := rl.Rectangle{0, 0, 14,2}
-
-
 
 	can_frogger_request_move := gmem.frogger_move_lerp_timer <= 0 
 
@@ -393,21 +411,28 @@ game_update :: proc()
 		{
 			frogger_move_direction.x = -1
 			gmem.frogger_sprite_rotation  = 270
+
+			frogger_anim_timer = 0
 		} 
 		else if rl.IsKeyPressed(.RIGHT) 
 		{
 			frogger_move_direction.x = 1
 			gmem.frogger_sprite_rotation = 90
+			frogger_anim_timer = 0
+
 		} 
 		else if rl.IsKeyPressed(.UP) 
 		{
 			frogger_move_direction.y = -1
 			gmem.frogger_sprite_rotation = 0
+			frogger_anim_timer = 0
+
 		} 
 		else if rl.IsKeyPressed(.DOWN) 
 		{
 			frogger_move_direction.y = 1
 			gmem.frogger_sprite_rotation = 180
+			frogger_anim_timer = 0
 		}
 
 		did_frogger_request_move := frogger_move_direction != [2]f32{0,0}
@@ -440,7 +465,7 @@ game_update :: proc()
 	} 
 	else 
 	{
-		gmem.frogger_move_lerp_timer -= rl.GetFrameTime()
+		gmem.frogger_move_lerp_timer -= frame_time
 		t := 1.0 - gmem.frogger_move_lerp_timer / frogger_move_lerp_duration
 		if t >= 1.0 
 		{
@@ -451,14 +476,19 @@ game_update :: proc()
 	}
 
 	{ // frogger animation
-
+		is_frogger_animation_complete := frogger_anim_timer >= frogger_anim_duration
+		if !is_frogger_animation_complete
+		{
+			frogger_anim_timer += frame_time
+			frogger_anim_timer = min(frogger_anim_duration, frogger_anim_timer)
+		}
 	}
 
 	{ // move logs
 		for &log, i in gmem.floating_logs 
 		{
 			log_move_speed : f32 = gmem.floating_logs_speed[i]
-			log_move_amount := log_move_speed * rl.GetFrameTime()
+			log_move_amount := log_move_speed * frame_time
 			log.x += log_move_amount
 			if log.x > f32(gmem.number_of_grid_cells_on_axis_x) + 1 
 			{
@@ -471,7 +501,7 @@ game_update :: proc()
 		for &vehicle, i in gmem.vehicles 
 		{
 			vehicle_move_speed : f32 = gmem.vehicles_speed[i]
-			vehicle_move_amount := vehicle_move_speed * rl.GetFrameTime()
+			vehicle_move_amount := vehicle_move_speed * frame_time
 			vehicle.x += vehicle_move_amount
 
 			should_warp_vehicle_to_right_side_of_screen := vehicle_move_amount < 0 && vehicle.x < 0 - vehicle[2]
@@ -489,26 +519,19 @@ game_update :: proc()
 	}
 
 	{ // turtles
-		// FIXME(jblat): This runs into the problem i noticed in the online clone where river objects start to overlap
-		// i believe what happens is that the independent object overshoots and the immediately warps to the other side
-		// because we are moving by delta time here. so there will often be slight variations in how much more a thing
-		// will go off to the side
-
-		// even the overshoot doesn't fix this, so im wondering if i can just have a single offset_x value that all of these things positions will
-		// be derived from in some way so they are all consistent
 		for &turtle, i in gmem.turtles
 		{
 			turtle_move_speed : f32 = gmem.turtles_speed[i]
-			turtle_move_amount := turtle_move_speed * rl.GetFrameTime()
+			turtle_move_amount := turtle_move_speed * frame_time
 			turtle.x += turtle_move_amount
 
-			should_warp_to_right_side_of_screen := turtle_move_amount < 0 && turtle.x < 0 - turtle[2]
+			should_warp_to_right_side_of_screen := turtle_move_amount < 0 && turtle.x < -turtle[2]
 			should_warp_to_left_side_of_screen := turtle_move_amount > 0 && turtle.x > f32(gmem.number_of_grid_cells_on_axis_x) + 1 
 
 			if should_warp_to_right_side_of_screen
 			{
-				turtle_overshoot_amount : f32 = turtle.x + turtle[2] 
-				turtle.x = f32(gmem.number_of_grid_cells_on_axis_x) + turtle[2] - turtle_overshoot_amount
+				turtle_overshoot_amount : f32 = turtle.x + turtle[2] // -1.5 + 1 = -0.5 
+				turtle.x = (f32(gmem.number_of_grid_cells_on_axis_x) + turtle[2]) + turtle_overshoot_amount
 			}
 			else if should_warp_to_left_side_of_screen 
 			{
@@ -527,7 +550,7 @@ game_update :: proc()
 			if should_frogger_move_with_log 
 			{
 				log_move_speed : f32 = gmem.floating_logs_speed[i]
-				log_move_amount := log_move_speed * rl.GetFrameTime()
+				log_move_amount := log_move_speed * frame_time
 				gmem.frogger_pos.x += log_move_amount
 				gmem.frogger_move_lerp_end_pos.x += log_move_amount
 
@@ -542,7 +565,7 @@ game_update :: proc()
 			if should_frogger_move_with_turtle 
 			{
 				turtle_move_speed : f32 = gmem.turtles_speed[i]
-				turtle_move_amount := turtle_move_speed * rl.GetFrameTime()
+				turtle_move_amount := turtle_move_speed * frame_time
 				gmem.frogger_pos.x += turtle_move_amount
 				gmem.frogger_move_lerp_end_pos.x += turtle_move_amount
 
@@ -635,6 +658,11 @@ game_update :: proc()
 			gmem.dbg_is_frogger_unkillable = !gmem.dbg_is_frogger_unkillable
 		}
 
+		if rl.IsKeyPressed(.F3)
+		{
+			gmem.dbg_show_entity_bounding_rectangles = !gmem.dbg_show_entity_bounding_rectangles
+		}
+
 	}
 
 
@@ -650,30 +678,6 @@ game_update :: proc()
 		defer rl.EndTextureMode()
 
 		rl.ClearBackground(rl.LIGHTGRAY) 
-
-		// { // draw background art
-		// 	sidewalks := [2]rl.Rectangle{
-		// 		{ 0, 13, 14, 1 },
-		// 		{ 0, 7,  14, 1 }
-		// 	}
-		// 	road     := rl.Rectangle{0, 8, 14, 5}
-
-		// 	for sw in sidewalks 
-		// 	{
-		// 		draw_rectangle_on_grid(sw, rl.PURPLE, gmem.cell_size)
-		// 	}
-
-
-		// 	draw_rectangle_on_grid(road, rl.BLACK, gmem.cell_size)
-		// 	draw_rectangle_on_grid(river, rl.DARKBLUE, gmem.cell_size)
-		// 	draw_rectangle_on_grid(riverbed, rl.LIME, gmem.cell_size)
-
-		// 	for lp in lilypad_end_goals
-		// 	{
-		// 		draw_rectangle_on_grid(lp, rl.DARKPURPLE, gmem.cell_size)
-
-		// 	}
-		// }
 
 		{ // draw background
 			scale : f32 =  gmem.cell_size / sprite_sheet_cell_size
@@ -714,17 +718,10 @@ game_update :: proc()
 		}
 
 		{ // draw frogger
-			// gmem.frogger_sprite_rotation += 1
-			frogger_cell_rectangle := [4]f32{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-
-
-			frogger_rectangle := frogger_cell_rectangle * gmem.cell_size
-			// rl.DrawRectangleRec(transmute(rl.Rectangle)frogger_rectangle, rl.GREEN)
-			rl.DrawRectangleLinesEx(transmute(rl.Rectangle)frogger_rectangle, 4, rl.DARKGREEN)
-
-			frogger_sprite_src_pos := [2]f32{2,0}
+			frogger_anim_current_frame := int(( frogger_anim_timer / frogger_anim_duration ) * len(frogger_anim_frames))
+			frogger_anim_current_frame = min(frogger_anim_current_frame, len(frogger_anim_frames) - 1)
+			frogger_sprite_src_pos := frogger_anim_frames[frogger_anim_current_frame]
 			draw_sprite_sheet_clip_on_grid(gmem.texture_sprite_sheet, frogger_sprite_src_pos, gmem.frogger_pos, sprite_sheet_cell_size, gmem.cell_size, gmem.frogger_sprite_rotation)
-
 		}
 
 		{ // draw frogs on lilypads
@@ -762,6 +759,14 @@ game_update :: proc()
 				render_end_x := gmem.game_screen_width
 				rl.DrawLineV([2]f32{render_start_x, render_y}, [2]f32{render_end_x, render_y}, rl.WHITE)
 			}
+		}
+
+		if gmem.dbg_show_entity_bounding_rectangles
+		{	
+			frogger_rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
+			draw_rectangle_lines_on_grid(frogger_rectangle, 4, rl.GREEN, gmem.cell_size)
+
+			// TODO(jblat): draw the rest of the stuff like logs and whatnot
 		}			
 	}
 
