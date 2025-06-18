@@ -1,0 +1,201 @@
+Command Palette
+
+Ctrl+Shift+P (Tools > Command Palette…)
+Goto Anything
+
+Go to file: Ctrl+P (Goto > Goto Anything…)
+
+Go to symbol: Ctrl+P, “@symbol” (Ctrl+R, Goto > Goto Symbol…)
+
+Go to line number: Ctrl+P, “:#” for line (Ctrl+G, Goto > Goto Line…) -
+
+Go to word: Ctrl+P, “#word” (Ctrl+;)
+
+Editing
+
+Insert line after: Ctrl+Enter
+
+Insert line before: Ctrl+Shift+Enter
+
+Repeat last keyboard command: Ctrl+Y (Edit > Repeat)
+
+Transpose: Ctrl+T (Edit > Text > Transpose)
+
+(Un)Comment current line: Ctrl+/ (Edit > Comment > Toggle Comment)
+
+Block (un)comment current selection Ctrl+Shift+/ (Edit > Comment > Toggle Block Comment)
+
+Paste and indent correctly: Ctrl+Shift+V (Edit > Paste and Indent)
+
+Uppercase: Ctrl+K, Ctrl+U (Edit > Convert Case > Upper Case)
+
+Lowercase: Ctrl+K, Ctrl+L (Edit > Convert Case > Lower Case)
+
+Line operations
+
+Indent current line(s): Ctrl+] (Edit > Line > Indent)
+
+Unindent current line(s): Ctrl+ (Edit > Line > Unindent)
+
+Move line/selection up: Ctrl+Shift+Up (Edit > Line > Swap Line Up)
+
+Move line/selection down: Ctrl+Shift+Down (Edit > Line > Swap Line Down)
+
+Duplicate lines: Ctrl+Shift+D (Edit > Line > Duplicate Line)
+
+Join lines: Ctrl+J (Edit > Line > Join Lines)
+
+Deleting
+
+Delete word forwards: Ctrl+Del
+
+Delete word backwards: Ctrl+Backspace
+
+Delete line: Ctrl+Shift+K (Edit > Line > Delete)
+
+Delete from cursor to end of line: Ctrl+K, Ctrl+K
+
+Delete from cursor to start of line: Ctrl+K, Ctrl+Backspace
+
+Selection (selection operations can be repeated multiple times)
+
+Select line: Ctrl+L (Selection > Expand Selection to Line)
+
+Select word: Ctrl+D (Selection > Expand Selection to Word)
+
+Select scope: Ctrl+Shift+Space (Selection > Expand Selection to Scope)
+
+Select brackets: Ctrl+Shift+M (Selection > Expand Selection to Brackets)
+
+Select indentation: Ctrl+Shift+J (Selection > Expand Selection to Indentation)
+
+Select tag: Ctrl+Shift+A (Selection > Expand Selection to Tag)
+
+Skip selection: Ctrl+K, Ctrl+D
+
+Scroll to selection: Ctrl+K, Ctrl+C (Goto > Scroll > Scroll to Selection)
+
+Navigation
+
+Jump to closing parenthesis (repeat to go to opening): Ctrl+M (Goto > Jump to Matching Bracket)
+
+Jump to your last change (repeat to undo change): Ctrl+U (Edit > Undo Selection > Undo)
+
+Bookmarks
+
+Toggle bookmark: Ctrl+F2 (Goto > Bookmarks > Toggle Bookmark)
+
+Next bookmark: F2 (Goto > Bookmarks > Next Bookmark)
+
+Previous bookmark: Shift+F2 (Goto > Bookmarks > Previous Bookmark)
+
+Select all bookmarks: Alt+F2 (Goto > Bookmarks > Select all Bookmarks)
+
+Find/Replace
+
+Find: Ctrl+F (Find > Find…)
+
+Find Next: F3 (Find > Find Next)
+
+Find Previous: Shift+F3 (Find > Find Previous)
+
+Replace: Ctrl+H (Find > Replace…)
+
+Find in files (Navigate using F4, Shift+F4): Ctrl+Shift+F (Find > Find in Files…)
+
+Code Folding
+
+Fold: Ctrl+Shift+ (Edit > Code Folding > Fold)
+
+Unfold: Ctrl+Shift+] (Edit > Code Folding > Unfold)
+
+Unfold all: Ctrl+K,Ctrl+J (Edit > Code Folding > Unfold All)
+
+Fold attributes: Ctrl+K,Ctrl+T (Edit > Code Folding > Fold Tag Attributes)
+
+Macros
+
+Record: Ctrl+Q (Tools > Record Macro)
+
+Playback: Ctrl+Shift+Q (Tools > Playback Macro)
+
+Tabs
+
+Previous tab: Ctrl+PgUp (Goto > Switch File > Previous File)
+
+Next tab: Ctrl+PgDown (Goto > Switch File > Next File)
+
+Switch to tab number: Alt+number (Goto > Switch File > …)
+
+Split Layout
+
+Set single layout: Alt+Shift+1 (View > Layout > Single)
+
+Set # columns: Alt+Shift+2,3,4 (View > Layout > Columns)
+
+Set 2 or 3 rows: Alt+Shift+8,9 (View > Layout > Rows)
+
+Set 2x2 grid: Alt+Shift+5 (View > Layout > Grid)
+
+Move to group #: Ctrl+# (View > Focus Group)
+
+Move file to group #: Ctrl+Shift+# (View > Move file to Group)
+
+Organization
+
+Toggle side bar: Ctrl+K, Ctrl+B (View > Side Bar > Hide Side Bar)
+
+Distraction free: Shift+F11 (View > Enter Distraction Free Mode)
+
+Enable spell-check (Navigate using Ctrl+F6, Ctrl+Shift+F6): F6 (View > Spell Check)
+
+Multiple Cursors
+
+Press Ctrl then click in each region
+
+Ctrl+Shift+L (Selection > Split into Lines)
+
+Highlight word, press Ctrl+D (Selection > Expand Selection to Word) repeatedly to select additional occurrences of that word.
+
+Add cursor at all occurrences of a word with Alt+F3 (Find > Quick Find All)
+
+Add new line with cursor: Ctrl+Alt+Up, Ctrl+Alt+Down (Selection > Add Previous Line)
+
+Return to single selection: Esc (Selection > Single Selection)
+
+You can select a rectangular selection by using Shift, then holding the
+right mouse button and dragging over the area you wish to select. You
+can add or remove part of the selection using Alt (Remove from selection) and
+??? (Add to selection) and using the same technique.
+
+Mark
+
+Set mark: Ctrl+K, Ctrl+Space (Edit > Mark > Set Mark)
+
+Select to mark: Ctrl+K, Ctrl+A (Edit > Mark > Select to Mark)
+
+Delete to mark: Ctrl+K, Ctrl+W (Edit > Mark > Delete to Mark)
+
+Switch location with mark: Ctrl+K, Ctrl+X (Edit > Mark > Swap with Mark)
+
+Clear Mark: Ctrl+K Ctrl+G (Edit > Mark > Clear Mark)
+
+Projects
+
+Switch Project: Ctrl+Alt+P (Project > Switch Project in Window…)
+
+Select root folder: Project > Add Folder to Project…
+
+Save: Project > Save Project As… (.sublime-project file)
+
+Miscellaneous
+
+Show scope in status bar: Ctrl+Alt+Shift+P
+
+Reindent Lines: Edit > Line > Reindent
+
+Close Tag: Alt+.
+
+Reopen Closed File: Ctrl+Shift+T (File > Open Recent… > Reopen Closed File)
+
+See Key Bindings: Preferences > Key Bindings – Default

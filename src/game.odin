@@ -15,7 +15,6 @@ Entity :: struct
 {
 	rectangle : rl.Rectangle,
 	speed     : f32,
-	color     : rl.Color,
 }
 
 
@@ -60,11 +59,12 @@ Game_Memory :: struct
 	floating_logs :[][4]f32,
 	floating_logs_speed :[]f32,
 
-	turtles :[][4]f32,
-	turtles_speed :[]f32,
+	turtles :[]rl.Rectangle,
+	diving_turtles :[]rl.Rectangle,
 
-	vehicles :[][4]f32,
+	vehicles :[]rl.Rectangle,
 	vehicle_positions :[][2]f32,
+	vehicle_rectangles :[]rl.Rectangle,
 	vehicles_speed :[]f32,
 	vehicles_colors :[]rl.Color,
 }
@@ -132,6 +132,16 @@ draw_sprite_sheet_clip_on_grid :: proc(sprite_sheet: rl.Texture2D, src_grid_pos,
 	rl.DrawTexturePro(sprite_sheet, src_rect, dst_rect, [2]f32{dst_midpoint.x, dst_midpoint.y}, rotation, rl.WHITE)
 }
 
+
+draw_sprite_sheet_rectangle_clip_on_grid :: proc(sprite_sheet: rl.Texture2D, src_grid, dst_grid: rl.Rectangle, src_cell_size, dst_cell_size, rotation: f32) 
+{
+	src_rect := get_rectangle_on_grid(src_grid, src_cell_size)
+	dst_rect := get_rectangle_on_grid(dst_grid, dst_cell_size)
+	dst_midpoint := [2]f32{dst_rect.width / 2, dst_rect.height / 2}
+	dst_rect.x += dst_midpoint.x
+	dst_rect.y += dst_midpoint.y
+	rl.DrawTexturePro(sprite_sheet, src_rect, dst_rect, [2]f32{dst_midpoint.x, dst_midpoint.y}, rotation, rl.WHITE)
+}
 
 @(export)
 game_memory_size :: proc() -> int
@@ -223,7 +233,8 @@ floating_logs_speed := [?]f32{
 	1,
 }
 
-turtles := [?][4]f32 {
+// TODO(jblat): keep updasting turtle stuff
+turtles := [?]rl.Rectangle {
 	{0, 7, 1, 1}, {1, 7, 1, 1}, {2,  7, 1, 1},
 	{4, 7, 1, 1}, {5, 7, 1, 1}, {6,  7, 1, 1},
 	{8, 7, 1, 1}, {9, 7, 1, 1}, {10, 7, 1, 1},
@@ -234,16 +245,25 @@ turtles := [?][4]f32 {
 	{14, 4, 1, 1}, {15, 4, 1, 1},
 }
 
-turtles_speed := [?]f32 {
-	-2, -2, -2,
-	-2, -2, -2,
-	-2, -2, -2,
-
-	-2, -2, 
-	-2, -2, 
-	-2, -2, 
-	-2, -2, 
+turtles := [?]Entity {
+	{ {2,  4, 1, 1}, -2}, { {3,  4, 1, 1}, -2},
+	{ {6,  4, 1, 1}, -2}, { {7,  4, 1, 1}, -2},
+	{ {10, 4, 1, 1}, -2}, { {11, 4, 1, 1}, -2},
+	{ {14, 4, 1, 1}, -2}, { {15, 4, 1, 1}, -2},
+	
+	{ {0, 7, 1, 1}, -2}, { {1, 7, 1, 1}, -2}, { {2,  7, 1, 1}, -2},
+	{ {4, 7, 1, 1}, -2}, { {5, 7, 1, 1}, -2}, { {6,  7, 1, 1}, -2},
+	{ {8, 7, 1, 1}, -2}, { {9, 7, 1, 1}, -2}, { {10, 7, 1, 1}, -2},
 }
+
+diving_turtles := [?]rl.Rectangle {
+	{12, 7, 1, 1}, {13, 7, 1, 1}, {14, 7, 1, 1}
+}
+
+diving_turtles := [?]Entity {
+	{ {12, 7, 1, 1}, -2 }, { {13, 7, 1, 1}, -2 }, { {14, 7, 1, 1}, -2 }
+}
+
 
 yellow_car_sprite_sheet_pos := [2]f32{3,0}
 bulldozer_sprite_sheet_pos := [2]f32{4,0}
@@ -251,7 +271,14 @@ purple_car_sprite_sheet_pos := [2]f32{7,0}
 white_car_sprite_sheet_pos := [2]f32{8,0}
 truck_sprite_sheet_poss := [2][2]f32{ {5, 0}, {6, 0} }
 
-vehicles := [?][4]f32{
+yellow_car_sprite_sheet_clip := rl.Rectangle{3,0,1,1}
+bulldozer_sprite_sheet_clip  := rl.Rectangle{4,0,1,1}
+purple_car_sprite_sheet_clip := rl.Rectangle{7,0,1,1}
+white_car_sprite_sheet_clip  := rl.Rectangle{8,0,1,1}
+truck_sprite_sheet_clip      := rl.Rectangle{5,0,2,1}
+
+
+vehicles := [?]rl.Rectangle{
 	{10, 13, 1, 1},
 	{6,  13, 1, 1},
 	{2,  13, 1, 1},
@@ -280,12 +307,12 @@ vehicle_positions := [?][2]f32{
 	{1,  9},  {2, 9},  {6, 9},   {7, 9}
 }
 
-vehicle_sprite_sheet_positions := [?][2]f32{
-	yellow_car_sprite_sheet_pos, yellow_car_sprite_sheet_pos, yellow_car_sprite_sheet_pos,
-	bulldozer_sprite_sheet_pos,  bulldozer_sprite_sheet_pos,  bulldozer_sprite_sheet_pos,
-	purple_car_sprite_sheet_pos, purple_car_sprite_sheet_pos, purple_car_sprite_sheet_pos,
-	white_car_sprite_sheet_pos,  white_car_sprite_sheet_pos,  white_car_sprite_sheet_pos,
-	truck_sprite_sheet_poss[0],  truck_sprite_sheet_poss[1],  truck_sprite_sheet_poss[0], truck_sprite_sheet_poss[1],
+vehicle_sprite_sheet_clips := [?]rl.Rectangle{
+	yellow_car_sprite_sheet_clip, yellow_car_sprite_sheet_clip, yellow_car_sprite_sheet_clip,
+	bulldozer_sprite_sheet_clip,  bulldozer_sprite_sheet_clip,  bulldozer_sprite_sheet_clip,
+	purple_car_sprite_sheet_clip, purple_car_sprite_sheet_clip, purple_car_sprite_sheet_clip,
+	white_car_sprite_sheet_clip,  white_car_sprite_sheet_clip,  white_car_sprite_sheet_clip,
+	truck_sprite_sheet_clip,  truck_sprite_sheet_clip
 }
 
 vehicles_speed := [?]f32{
@@ -331,6 +358,54 @@ vehicles_colors := [?]rl.Color{
 }
 
 
+move_rectangles_with_uniform_speed_and_wrap :: proc(rectangles: []rl.Rectangle, speed, dt: f32)
+{
+	for &rectangle in rectangles
+	{
+		rectangle_move_amount := -2 * dt
+		rectangle.x += rectangle_move_amount
+
+		should_warp_to_right_side_of_screen := rectangle_move_amount < 0 && rectangle.x < -rectangle.width
+		should_warp_to_left_side_of_screen := rectangle_move_amount > 0 && rectangle.x > f32(gmem.number_of_grid_cells_on_axis_x) + 1 
+
+		if should_warp_to_right_side_of_screen
+		{
+			rectangle_overshoot_amount : f32 = rectangle.x + rectangle.width // -1.5 + 1 = -0.5 
+			rectangle.x = (f32(gmem.number_of_grid_cells_on_axis_x) + rectangle.width) + rectangle_overshoot_amount
+		}
+		else if should_warp_to_left_side_of_screen 
+		{
+			rectangle_overshoot_amount : f32 = rectangle.x - f32(gmem.number_of_grid_cells_on_axis_x) + 1
+			rectangle.x = 0 - rectangle.width - 1 + rectangle_overshoot_amount
+		}
+	}
+}
+
+
+move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
+{
+	for &entity in entities
+	{
+		rectangle := &entity.rectangle
+		rectangle_move_amount := entity.speed * dt
+		rectangle.x += rectangle_move_amount
+
+		should_warp_to_right_side_of_screen := rectangle_move_amount < 0 && rectangle.x < -rectangle.width
+		should_warp_to_left_side_of_screen := rectangle_move_amount > 0 && rectangle.x > f32(gmem.number_of_grid_cells_on_axis_x) + 1 
+
+		if should_warp_to_right_side_of_screen
+		{
+			rectangle_overshoot_amount : f32 = rectangle.x + rectangle.width // -1.5 + 1 = -0.5 
+			rectangle.x = (f32(gmem.number_of_grid_cells_on_axis_x) + rectangle.width) + rectangle_overshoot_amount
+		}
+		else if should_warp_to_left_side_of_screen 
+		{
+			rectangle_overshoot_amount : f32 = rectangle.x - f32(gmem.number_of_grid_cells_on_axis_x) + 1
+			rectangle.x = 0 - rectangle.width - 1 + rectangle_overshoot_amount
+		}
+	}
+}
+
 // Note(jblat): This will make sure that if the above entities change,
 // They will actually be reset
 @(export)
@@ -340,7 +415,7 @@ game_reset_entities :: proc(mem: ^Game_Memory)
 	gmem.floating_logs_speed = floating_logs_speed[:]
 
 	gmem.turtles = turtles[:]
-	gmem.turtles_speed = turtles_speed[:]
+	gmem.diving_turtles = diving_turtles[:]
 
 	gmem.vehicles = vehicles[:]
 	gmem.vehicles_speed = vehicles_speed[:]
@@ -406,6 +481,25 @@ game_init :: proc()
 frogger_anim_duration : f32 = 0.25
 frogger_anim_timer : f32 = frogger_anim_duration
 
+regular_turtles_anim_fps : f32 = 4
+regular_turtles_anim_timer : f32 = 0
+
+diving_turtles_anim_fps : f32 = regular_turtles_anim_fps
+diving_turtles_anim_timer : f32 = 0 
+
+get_anim_current_frame_index :: proc(t, fps: f32, number_of_frames: int) -> int
+{
+	ret := int(math.mod(t * fps, f32(number_of_frames)))
+	return ret
+}
+
+get_anim_current_frame_sprite_sheet_clip :: proc(t, fps: f32, frame_clips: []rl.Rectangle) -> rl.Rectangle
+{
+	frame_index := get_anim_current_frame_index(t, fps, len(frame_clips))
+	frame_clip_rectangle := frame_clips[frame_index]
+	return frame_clip_rectangle
+}
+
 
 @(export)
 game_update :: proc()
@@ -420,8 +514,20 @@ game_update :: proc()
 		{0,0}, {1,0}, {0,0}, {2,0}
 	}
 
+	regular_turtle_anim_frames := [?]rl.Rectangle{
+		{0,5,1,1}, {1,5,1,1}, {2,5,1,1}
+	}
+
+	diving_turtle_anim_frames := [?]rl.Rectangle{
+		{0,5,1,1}, {1,5,1,1}, {2,5,1,1}, {3,5,1,1}, {4,5,1,1}, {5,5,1,1}, {4,5,1,1}, {3,5,1,1}
+	}
+
+	diving_turtle_underwater_frame := 5
+
 	river := rl.Rectangle{0, 2, 14, 6}
 	riverbed := rl.Rectangle{0, 0, 14,2}
+
+
 
 	can_frogger_request_move := gmem.frogger_move_lerp_timer <= 0 
 
@@ -433,7 +539,6 @@ game_update :: proc()
 		{
 			frogger_move_direction.x = -1
 			gmem.frogger_sprite_rotation  = 270
-
 			frogger_anim_timer = 0
 		} 
 		else if rl.IsKeyPressed(.RIGHT) 
@@ -480,9 +585,6 @@ game_update :: proc()
 				gmem.frogger_move_lerp_start_pos = gmem.frogger_pos
 				gmem.frogger_move_lerp_end_pos = frogger_next_pos
 			}
-
-			// TODO(jblat): make it so that frogger can't move out of bounds to a point where he would die
-
 		}
 	} 
 	else 
@@ -506,6 +608,11 @@ game_update :: proc()
 		}
 	}
 
+	{ // turtles animation
+		regular_turtles_anim_timer += frame_time
+		diving_turtles_anim_timer += frame_time
+	}
+
 	{ // move logs
 		for &log, i in gmem.floating_logs 
 		{
@@ -520,67 +627,31 @@ game_update :: proc()
 	}
 
 	{ // move vehicles
-		// for &vehicle, i in gmem.vehicles 
-		// {
-		// 	vehicle_move_speed : f32 = gmem.vehicles_speed[i]
-		// 	vehicle_move_amount := vehicle_move_speed * frame_time
-		// 	vehicle.x += vehicle_move_amount
-
-		// 	should_warp_vehicle_to_right_side_of_screen := vehicle_move_amount < 0 && vehicle.x < 0 - vehicle[2]
-		// 	should_warp_vehicle_to_left_side_of_screen := vehicle_move_amount > 0 && vehicle.x > f32(gmem.number_of_grid_cells_on_axis_x) + 1 
-
-		// 	if should_warp_vehicle_to_right_side_of_screen
-		// 	{
-		// 		vehicle.x = f32(gmem.number_of_grid_cells_on_axis_x) + vehicle[2]
-		// 	}
-		// 	else if should_warp_vehicle_to_left_side_of_screen 
-		// 	{
-		// 		vehicle.x = 0 - vehicle[2] - 1
-		// 	}
-		// }
-
-		for &vehicle, i in gmem.vehicle_positions
+		for &vehicle, i in gmem.vehicles 
 		{
 			vehicle_move_speed : f32 = gmem.vehicles_speed[i]
 			vehicle_move_amount := vehicle_move_speed * frame_time
 			vehicle.x += vehicle_move_amount
 
-			should_warp_vehicle_to_right_side_of_screen := vehicle_move_amount < 0 && vehicle.x < -1
+			should_warp_vehicle_to_right_side_of_screen := vehicle_move_amount < 0 && vehicle.x < 0 - vehicle.width
 			should_warp_vehicle_to_left_side_of_screen := vehicle_move_amount > 0 && vehicle.x > f32(gmem.number_of_grid_cells_on_axis_x) + 1 
 
 			if should_warp_vehicle_to_right_side_of_screen
 			{
-				overshoot_amount : f32 = vehicle.x + 1
-				vehicle.x = f32(gmem.number_of_grid_cells_on_axis_x) + 1 + overshoot_amount
+				overshoot_amount : f32 = vehicle.x + vehicle.width
+
+				vehicle.x = f32(gmem.number_of_grid_cells_on_axis_x) + vehicle.width + overshoot_amount
 			}
 			else if should_warp_vehicle_to_left_side_of_screen 
 			{
-				vehicle.x = -1 - 1
+				vehicle.x = 0 - vehicle.width - 1
 			}
-
 		}
 	}
 
 	{ // turtles
-		for &turtle, i in gmem.turtles
-		{
-			turtle_move_speed : f32 = gmem.turtles_speed[i]
-			turtle_move_amount := turtle_move_speed * frame_time
-			turtle.x += turtle_move_amount
-
-			should_warp_to_right_side_of_screen := turtle_move_amount < 0 && turtle.x < -turtle[2]
-			should_warp_to_left_side_of_screen := turtle_move_amount > 0 && turtle.x > f32(gmem.number_of_grid_cells_on_axis_x) + 1 
-
-			if should_warp_to_right_side_of_screen
-			{
-				turtle_overshoot_amount : f32 = turtle.x + turtle[2] // -1.5 + 1 = -0.5 
-				turtle.x = (f32(gmem.number_of_grid_cells_on_axis_x) + turtle[2]) + turtle_overshoot_amount
-			}
-			else if should_warp_to_left_side_of_screen 
-			{
-				turtle.x = 0 - turtle[2] - 1
-			}
-		}
+		move_rectangles_with_uniform_speed_and_wrap(gmem.turtles, turtles_speed, frame_time)
+		move_rectangles_with_uniform_speed_and_wrap(gmem.diving_turtles, turtles_speed, frame_time)
 	}
 
 	{ // move frogger if center is on log or turtles
@@ -607,8 +678,7 @@ game_update :: proc()
 			
 			if should_frogger_move_with_turtle 
 			{
-				turtle_move_speed : f32 = gmem.turtles_speed[i]
-				turtle_move_amount := turtle_move_speed * frame_time
+				turtle_move_amount := turtles_speed * frame_time
 				gmem.frogger_pos.x += turtle_move_amount
 				gmem.frogger_move_lerp_end_pos.x += turtle_move_amount
 
@@ -638,20 +708,9 @@ game_update :: proc()
 		}
 
 		frogger_center_pos := gmem.frogger_pos + 0.5
-		// for vehicle in gmem.vehicles
-		// {
-		// 	vehicle_rect := transmute(rl.Rectangle)vehicle
-		// 	is_frogger_hit_by_vehicle := rl.CheckCollisionPointRec(frogger_center_pos, vehicle_rect)
-		// 	if is_frogger_hit_by_vehicle
-		// 	{
-		// 		gmem.frogger_pos = frogger_start_pos
-		// 	}
-		// }
-
-		for vehicle in gmem.vehicle_positions
+		for vehicle in gmem.vehicles
 		{
-			vehicle_rect := rl.Rectangle{vehicle.x, vehicle.y, 1, 1}
-			is_frogger_hit_by_vehicle := rl.CheckCollisionPointRec(frogger_center_pos, vehicle_rect)
+			is_frogger_hit_by_vehicle := rl.CheckCollisionPointRec(frogger_center_pos, vehicle)
 			if is_frogger_hit_by_vehicle
 			{
 				gmem.frogger_pos = frogger_start_pos
@@ -665,8 +724,8 @@ game_update :: proc()
 		is_frogger_in_river_region := frogger_center_pos.y >= river_rect.y && frogger_center_pos.y <= river_rect.y + river_rect.height
 		is_frogger_in_riverbed := rl.CheckCollisionPointRec(frogger_center_pos, riverbed)
 
-		is_frogger_die_in_riverbed := is_frogger_in_riverbed && !is_frogger_moving
-		if is_frogger_die_in_riverbed
+		did_frogger_collide_with_riverbed := is_frogger_in_riverbed && !is_frogger_moving
+		if did_frogger_collide_with_riverbed
 		{
 			gmem.frogger_pos = frogger_start_pos
 		}
@@ -747,33 +806,25 @@ game_update :: proc()
 				rl.DrawRectangleRec(transmute(rl.Rectangle)log_rectangle, rl.BROWN)
 			}
 
-			// for vehicle, i in gmem.vehicles
-			// {
-			// 	vehicle_with_padding := vehicle
-			// 	vehicle_with_padding.y += 0.1
-			// 	vehicle_with_padding[3] -= 0.2
-			// 	vehicle_rectangle := vehicle_with_padding * gmem.cell_size
-			// 	vehicle_color := gmem.vehicles_colors[i]
-			// 	rl.DrawRectangleRec(transmute(rl.Rectangle)vehicle_rectangle, vehicle_color)
-			// }
-
-			for vehicle, i in gmem.vehicle_positions
+			for vehicle, i in gmem.vehicles
 			{
-				vehicle_sprite_sheet_pos := vehicle_sprite_sheet_positions[i]
-				draw_sprite_sheet_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_pos, vehicle, sprite_sheet_cell_size, gmem.cell_size, 0)
+				vehicle_sprite_sheet_clip := vehicle_sprite_sheet_clips[i]
+				draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_clip, vehicle, sprite_sheet_cell_size, gmem.cell_size, 0)
 			}
 
+			regular_turtles_current_frame_sprite_sheet_clip_rectangle := get_anim_current_frame_sprite_sheet_clip(regular_turtles_anim_timer, regular_turtles_anim_fps, regular_turtle_anim_frames[:])
 			for turtle in gmem.turtles
 			{
-				turtle_with_padding := turtle
-				turtle_with_padding.x += 0.1
-				turtle_with_padding.y += 0.1
-				turtle_with_padding[2] -= 0.2
-				turtle_with_padding[3] -= 0.2
-				turtle_rectangle := turtle_with_padding * gmem.cell_size
-				turtle_color := rl.ORANGE
-				rl.DrawRectangleRec(transmute(rl.Rectangle)turtle_rectangle, turtle_color)
+				draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, regular_turtles_current_frame_sprite_sheet_clip_rectangle, turtle, sprite_sheet_cell_size, gmem.cell_size, 0)
 			}
+
+			diving_turtles_current_frame_sprite_sheet_clilp_rectangle := get_anim_current_frame_sprite_sheet_clip(diving_turtles_anim_timer, diving_turtles_anim_fps, diving_turtle_anim_frames[:])
+
+			for turtle in gmem.diving_turtles
+			{
+				draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle, turtle, sprite_sheet_cell_size, gmem.cell_size, 0)
+			}
+
 		}
 
 		{ // draw frogger
