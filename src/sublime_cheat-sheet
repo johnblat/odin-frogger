@@ -199,3 +199,5 @@ Close Tag: Alt+.
 Reopen Closed File: Ctrl+Shift+T (File > Open Recent… > Reopen Closed File)
 
 See Key Bindings: Preferences > Key Bindings – Default
+
+Jump Back is bound to Alt+Minus
