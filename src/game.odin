@@ -384,6 +384,44 @@ fly_is_active : bool     = false
 fly_sprite_sheet_clip   := rl.Rectangle {2, 6, 1, 1}
 
 
+Direction :: enum {
+	Up, Down, Left, Right
+}
+
+map_direction_rotation := [Direction]f32 {
+	.Up = 0,
+	.Down = 180,
+	.Left = 270,
+	.Right = 90
+}
+
+lily_is_active : bool = false
+lily_sprite_sheet_clip := rl.Rectangle {2, 1, 1, 1}
+lily_relative_log_pos_x : f32 = 0
+lily_width : f32 = 1
+lily_height : f32 = 1
+
+lily_wait_timer : f32 = 0
+lily_wait_duration : f32 = 1
+lily_direction : Direction = .Right
+
+lily_lerp_timer : f32 = 0
+lily_lerp_relative_log_start_x : f32 = 0
+lily_lerp_relative_log_end_x   : f32 = 0 
+lily_lerp_duration             : f32 = 0.2
+
+lily_logs_to_spawn_on := [?]int{5, 1, 3}
+lily_log_to_spawn_on_index : int = 0 // index into above array
+
+
+frogger_death_anim_fps : f32 = 3
+frogger_death_anim_frames := [?]rl.Rectangle{
+	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}
+}
+frogger_death_anim_timer : f32 = get_anim_duration(frogger_death_anim_fps, len(frogger_death_anim_frames))
+
+
+
 move_rectangles_with_uniform_speed_and_wrap :: proc(rectangles: []rl.Rectangle, speed, dt: f32)
 {
 	for &rectangle in rectangles
@@ -566,12 +604,6 @@ get_anim_current_frame_sprite_sheet_clip :: proc(t, fps: f32, frame_clips: []rl.
 }
 
 
-frogger_death_anim_fps : f32 = 3
-frogger_death_anim_frames := [?]rl.Rectangle{
-	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}
-}
-frogger_death_anim_timer : f32 = get_anim_duration(frogger_death_anim_fps, len(frogger_death_anim_frames))
-
 
 @(export)
 game_update :: proc()
@@ -617,8 +649,8 @@ game_update :: proc()
 	{	
 		is_frogger_death_anim_playing := frogger_death_anim_timer < get_anim_duration(frogger_death_anim_fps, len(frogger_death_anim_frames))
 
-		can_frogger_request_move := gmem.frogger_move_lerp_timer <= 0 && !is_frogger_death_anim_playing 
 
+		can_frogger_request_move := gmem.frogger_move_lerp_timer <= 0 && !is_frogger_death_anim_playing 
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -674,10 +706,61 @@ game_update :: proc()
 					gmem.frogger_move_lerp_end_pos = frogger_next_pos
 				}
 			}
-		} 
+		}
+
+
+		{ // lily
+			log_that_lily_is_on := floating_logs[lily_logs_to_spawn_on[lily_log_to_spawn_on_index]]
+
+			lily_wait_timer += frame_time
+			is_timer_complete := lily_wait_timer >= lily_wait_duration
+			if is_timer_complete
+			{
+				lily_wait_timer = 0
+
+				move_amount_x : f32 = 0 
+
+				if lily_direction == .Right
+				{
+					edge_of_log_x := log_that_lily_is_on.rectangle.width - 1
+					is_lily_on_right_edge_of_log := lily_relative_log_pos_x >= edge_of_log_x
+					if !is_lily_on_right_edge_of_log
+					{
+						move_amount_x = 1
+					}
+					else
+					{
+						lily_direction = .Left
+					}
+				}
+				else if lily_direction == .Left
+				{
+					edge_of_log_x : f32 = 0
+					is_lily_on_left_edge_of_log := lily_relative_log_pos_x <= edge_of_log_x
+					if !is_lily_on_left_edge_of_log
+					{
+						move_amount_x = -1
+					}
+					else
+					{
+						lily_direction = .Right
+					}
+				}
+
+				did_lily_move_amount_get_set := move_amount_x != 0
+
+				if did_lily_move_amount_get_set
+				{
+					lily_relative_log_pos_x += move_amount_x
+				}
+
+			}
+		}
 		
 
-		if gmem.frogger_move_lerp_timer != 0 {
+		should_process_frogger_lerp_timer := gmem.frogger_move_lerp_timer != 0
+		if should_process_frogger_lerp_timer 
+		{
 			gmem.frogger_move_lerp_timer -= frame_time
 			t := 1.0 - gmem.frogger_move_lerp_timer / frogger_move_lerp_duration
 			if t >= 1.0 
@@ -687,6 +770,7 @@ game_update :: proc()
 			gmem.frogger_pos.x = (1.0 - t) * gmem.frogger_move_lerp_start_pos.x + t * gmem.frogger_move_lerp_end_pos.x
 			gmem.frogger_pos.y = (1.0 - t) * gmem.frogger_move_lerp_start_pos.y + t * gmem.frogger_move_lerp_end_pos.y
 		}
+
 
 		{ // frogger animation
 			is_frogger_animation_complete := frogger_anim_timer >= frogger_anim_duration
@@ -721,6 +805,7 @@ game_update :: proc()
 			}
 		}
 
+
 		{ // fly 
 			fly_timer += frame_time
 			if fly_timer >= fly_timer_duration
@@ -750,6 +835,7 @@ game_update :: proc()
 			move_entities_and_wrap(gmem.diving_turtles, frame_time)
 		}
 
+
 		{ // move vehicles
 			for &vehicle, i in gmem.vehicles 
 			{
@@ -773,13 +859,19 @@ game_update :: proc()
 			}
 		}
 
-		if !is_frogger_death_anim_playing { // move frogger if center is on log or turtles
+
+		should_process_moving_frogger_with_intersecting_entities := !is_frogger_death_anim_playing 
+		if should_process_moving_frogger_with_intersecting_entities
+		{ 
 			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, gmem.floating_logs, frame_time)
 			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, gmem.turtles, frame_time)
 			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, gmem.diving_turtles, frame_time)
 		}
 
-		{ // win conditions
+
+		should_check_for_win_condtions := !is_frogger_death_anim_playing
+		if should_check_for_win_condtions 
+		{
 			for lilypad, i in lilypads 
 			{	
 				frogger_center_pos := gmem.frogger_pos + 0.5
@@ -817,8 +909,8 @@ game_update :: proc()
 			}
 		}
 
-		should_check_for_game_over := !is_frogger_death_anim_playing
 
+		should_check_for_game_over := !is_frogger_death_anim_playing
 		if should_check_for_game_over 
 		{
 			is_frogger_out_of_bounds := gmem.frogger_pos.x + 0.5 < 0 || gmem.frogger_pos.x - 0.5 >= f32(gmem.number_of_grid_cells_on_axis_x) -1 || gmem.frogger_pos.y < 0 || gmem.frogger_pos.y > f32(gmem.number_of_grid_cells_on_axis_y)
@@ -849,7 +941,6 @@ game_update :: proc()
 			{
 				gmem.frogger_move_lerp_timer = 0
 				frogger_death_anim_timer = 0
-				// gmem.frogger_pos.y = riverbed.y + riverbed.height
 			}
 
 			for log in gmem.floating_logs
@@ -916,6 +1007,7 @@ game_update :: proc()
 	}
 
 
+
 	// rendering
 
 	screen_width := f32(rl.GetScreenWidth())
@@ -975,7 +1067,19 @@ game_update :: proc()
 			draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, rectangle, sprite_sheet_cell_size, gmem.cell_size, rotation)
 		}
 
-		{
+		{ // draw lily
+			log_that_lily_is_on := lily_logs_to_spawn_on[lily_log_to_spawn_on_index]
+			log := floating_logs[log_that_lily_is_on]
+			lily_world_rectangle := rl.Rectangle{
+				log.rectangle.x + lily_relative_log_pos_x,
+				log.rectangle.y,
+				lily_width,
+				lily_height
+			}
+			draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, lily_world_rectangle, sprite_sheet_cell_size, gmem.cell_size, 0)
+		}
+
+		{ // draw fly
 			clip := fly_is_active ? fly_sprite_sheet_clip : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
