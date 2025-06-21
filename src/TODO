@@ -1,0 +1,10 @@
+TODO
+[ ] Make propper conditional death animations
+	[ ] When frogger drown, play drown animation
+	[x] When frogger hit by car, play car hit animation
+	[ ] When frogger hit riverbed, play riverbed animation
+[ ] When get all frogs home, play level clear animation where all frogs open mouth smile and reset level
+[ ] Bug timer
+	- 4 seconds
+[ ] Purple frog timer
+[ ] Make sure correct number and positioning of level 1 obstacles
