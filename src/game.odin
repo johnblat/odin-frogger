@@ -19,6 +19,43 @@ Entity :: struct
 }
 
 
+Timer :: struct
+{
+	amount: f32,
+	duration: f32,
+	loop: bool,
+}
+
+
+
+timer_is_complete :: proc(timer: Timer) -> bool
+{
+	if timer.amount >= timer.duration
+	{
+		return true
+	}
+	return false
+}
+
+
+timer_advance :: proc(timer: ^Timer, dt: f32)
+{
+	timer.amount += dt
+	timer.amount = min(timer.amount, timer.duration)
+	if timer.loop && timer_is_complete(timer^)
+	{
+		timer_start(timer)
+	}
+}
+
+
+timer_start :: proc(timer: ^Timer)
+{
+	timer.amount = 0
+}
+
+
+
 Game_Memory :: struct
 {
 	// GRID
@@ -146,6 +183,7 @@ draw_sprite_sheet_rectangle_clip_on_grid :: proc(sprite_sheet: rl.Texture2D, src
 	rl.DrawTexturePro(sprite_sheet, src_rect, dst_rect, [2]f32{dst_midpoint.x, dst_midpoint.y}, rotation, rl.WHITE)
 }
 
+
 @(export)
 game_memory_size :: proc() -> int
 {
@@ -201,6 +239,7 @@ game_free_memory :: proc()
 initial_window_width := 640
 initial_window_height := 640
 
+
 @(export)
 game_init_platform :: proc()
 {
@@ -208,6 +247,7 @@ game_init_platform :: proc()
 	rl.InitWindow(i32(initial_window_width), i32(initial_window_height), "Frogger [For Educational Purposes Only]")
 	rl.SetTargetFPS(60)
 }
+
 
 happy_frog_sprite_clip_closed_mouth := rl.Rectangle{3, 6, 1, 1}
 
@@ -249,26 +289,11 @@ turtles := [?]Entity {
 	{ {8, 7, 1, 1}, -2, 0}, { {9, 7, 1, 1}, -2, 0}, { {10, 7, 1, 1}, -2, 0},
 }
 
-Row_Warp_Boundary_Extension :: struct {
-	row: int,
-	extension: f32,
-}
-
-// Note(jblat): not sure if this the best
-// I also thought about putting this in the entity struct so that every entity will apply it without needing to check
-row_warp_extension_boundaries := [?] Row_Warp_Boundary_Extension {
-	{4, 5.0},
-}
-
 
 diving_turtles := [?]Entity {
 	{ {2, 4, 1, 1},  -2 , 4}, { {3, 4, 1, 1}, -2,  4  },
 	{ {12, 7, 1, 1}, -2 , 0}, { {13, 7, 1, 1}, -2, 0 }, { {14, 7, 1, 1}, -2, 0}
 }
-
-frogger_anim_duration : f32 = 0.25
-frogger_anim_timer : f32 = frogger_anim_duration
-
 
 regular_turtles_anim_fps : f32 = 3
 regular_turtles_anim_timer : f32 = 0
@@ -280,17 +305,12 @@ diving_turtles_anim_timers := [?]f32 {
 	1, 1, 1,
 }
 
-yellow_car_sprite_sheet_pos := [2]f32{3,0}
-bulldozer_sprite_sheet_pos := [2]f32{4,0}
-purple_car_sprite_sheet_pos := [2]f32{7,0}
-white_car_sprite_sheet_pos := [2]f32{8,0}
-truck_sprite_sheet_poss := [2][2]f32{ {5, 0}, {6, 0} }
 
-yellow_car_sprite_sheet_clip := rl.Rectangle{3,0,1,1}
-bulldozer_sprite_sheet_clip  := rl.Rectangle{4,0,1,1}
-purple_car_sprite_sheet_clip := rl.Rectangle{7,0,1,1}
-white_car_sprite_sheet_clip  := rl.Rectangle{8,0,1,1}
-truck_sprite_sheet_clip      := rl.Rectangle{5,0,2,1}
+
+frogger_anim_timer := Timer {
+	amount = 0.25,
+	duration = 0.25,
+}
 
 
 vehicles := [?]rl.Rectangle{
@@ -321,6 +341,12 @@ vehicle_positions := [?][2]f32{
 	{1,  10}, {5, 10}, {9,  10},
 	{1,  9},  {2, 9},  {6, 9},   {7, 9}
 }
+
+yellow_car_sprite_sheet_clip := rl.Rectangle{3,0,1,1}
+bulldozer_sprite_sheet_clip  := rl.Rectangle{4,0,1,1}
+purple_car_sprite_sheet_clip := rl.Rectangle{7,0,1,1}
+white_car_sprite_sheet_clip  := rl.Rectangle{8,0,1,1}
+truck_sprite_sheet_clip      := rl.Rectangle{5,0,2,1}
 
 vehicle_sprite_sheet_clips := [?]rl.Rectangle{
 	yellow_car_sprite_sheet_clip, yellow_car_sprite_sheet_clip, yellow_car_sprite_sheet_clip,
@@ -374,8 +400,10 @@ vehicles_colors := [?]rl.Color{
 
 fly_lilypad_indices := [?]int{3, 1, 3, 1, 0, 2, 4, 3, 1, 0}
 fly_lilypad_index : int  = 0 // index into array above, not the lilypad
-fly_timer_duration : f32 = 4.0
-fly_timer : f32          = 0
+fly_timer := Timer{
+	amount = 0,
+	duration = 4.0,
+}
 fly_is_active : bool     = false
 fly_sprite_sheet_clip   := rl.Rectangle {2, 6, 1, 1}
 
@@ -446,17 +474,6 @@ move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 {
 	for &entity in entities
 	{
-
-		// warp_boundary_extension : f32 = 0
-		// for record in row_warp_extension_boundaries
-		// {
-		// 	if record.row == int(math.floor(entity.rectangle.y))
-		// 	{
-		// 		warp_boundary_extension = record.extension
-		// 		break
-		// 	}
-		// }
-
 		rectangle := &entity.rectangle
 		rectangle_move_amount := entity.speed * dt
 		rectangle.x += rectangle_move_amount
@@ -656,27 +673,25 @@ game_update :: proc()
 			{
 				frogger_move_direction.x = -1
 				gmem.frogger_sprite_rotation  = 270
-				frogger_anim_timer = 0
-			} 
+				timer_start(&frogger_anim_timer)
+			}
 			else if rl.IsKeyPressed(.RIGHT) 
 			{
 				frogger_move_direction.x = 1
 				gmem.frogger_sprite_rotation = 90
-				frogger_anim_timer = 0
-
+				timer_start(&frogger_anim_timer)
 			} 
 			else if rl.IsKeyPressed(.UP) 
 			{
 				frogger_move_direction.y = -1
 				gmem.frogger_sprite_rotation = 0
-				frogger_anim_timer = 0
-
+				timer_start(&frogger_anim_timer)
 			} 
 			else if rl.IsKeyPressed(.DOWN) 
 			{
 				frogger_move_direction.y = 1
 				gmem.frogger_sprite_rotation = 180
-				frogger_anim_timer = 0
+				timer_start(&frogger_anim_timer)
 			}
 
 			did_frogger_request_move := frogger_move_direction != [2]f32{0,0}
@@ -770,12 +785,7 @@ game_update :: proc()
 
 
 		{ // frogger animation
-			is_frogger_animation_complete := frogger_anim_timer >= frogger_anim_duration
-			if !is_frogger_animation_complete
-			{
-				frogger_anim_timer += frame_time
-				frogger_anim_timer = min(frogger_anim_duration, frogger_anim_timer)
-			}
+			timer_advance(&frogger_anim_timer, frame_time)
 		}
 
 
@@ -804,10 +814,10 @@ game_update :: proc()
 
 
 		{ // fly 
-			fly_timer += frame_time
-			if fly_timer >= fly_timer_duration
+			timer_advance(&fly_timer, frame_time)
+			if timer_is_complete(fly_timer)
 			{
-				fly_timer = 0
+				timer_start(&fly_timer)
 				fly_is_active = !fly_is_active
 				fly_lilypad_index += 1
 				if fly_lilypad_index >= len(fly_lilypad_indices)
@@ -1054,7 +1064,7 @@ game_update :: proc()
 
 		{ // draw frogger
 			is_frogger_death_anim_playing := frogger_death_anim_timer < get_anim_duration(frogger_death_anim_fps, len(frogger_death_anim_frames))
-			anim_timer    : f32 =    is_frogger_death_anim_playing ? frogger_death_anim_timer     : frogger_anim_timer
+			anim_timer    : f32 =    is_frogger_death_anim_playing ? frogger_death_anim_timer     : frogger_anim_timer.amount
 			anim_fps      : f32 =    is_frogger_death_anim_playing ? frogger_death_anim_fps       : 12.0 
 			frames :[]rl.Rectangle = is_frogger_death_anim_playing ? frogger_death_anim_frames[:] : frogger_anim_frames[:]
 			rotation : f32         = is_frogger_death_anim_playing ? 0                            : gmem.frogger_sprite_rotation
@@ -1109,7 +1119,7 @@ game_update :: proc()
 			{
 				render_y := y * gmem.cell_size
 				render_start_x : f32 = 0
-				render_end_x := gmem.game_screen_width
+				render_end_x := gmem.game_screen_width 
 				rl.DrawLineV([2]f32{render_start_x, render_y}, [2]f32{render_end_x, render_y}, rl.WHITE)
 			}
 		}
