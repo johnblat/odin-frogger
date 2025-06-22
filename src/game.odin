@@ -443,10 +443,12 @@ lily_wait_timer := Timer {
 
 lily_direction : Direction = .Right
 
-lily_lerp_timer : f32 = 0
+lily_lerp_timer := Timer {
+	amount = 0.2,
+	duration = 0.2,
+}
 lily_lerp_relative_log_start_x : f32 = 0
 lily_lerp_relative_log_end_x   : f32 = 0 
-lily_lerp_duration             : f32 = 0.2
 
 lily_logs_to_spawn_on := [?]int{5, 1, 3}
 lily_log_to_spawn_on_index : int = 0 // index into above array
@@ -742,48 +744,58 @@ game_update :: proc()
 		{ // lily
 			log_that_lily_is_on := floating_logs[lily_logs_to_spawn_on[lily_log_to_spawn_on_index]]
 
-			timer_advance(&lily_wait_timer, frame_time)
-			if timer_is_complete(lily_wait_timer)
+			if timer_is_complete(lily_lerp_timer)
 			{
-				timer_start(&lily_wait_timer)
-
-				move_amount_x : f32 = 0 
-
-				if lily_direction == .Right
+				timer_advance(&lily_wait_timer, frame_time)
+				if timer_is_complete(lily_wait_timer)
 				{
-					edge_of_log_x := log_that_lily_is_on.rectangle.width - 1
-					is_lily_on_right_edge_of_log := lily_relative_log_pos_x >= edge_of_log_x
-					if !is_lily_on_right_edge_of_log
-					{
-						move_amount_x = 1
-					}
-					else
-					{
-						lily_direction = .Left
-					}
-				}
-				else if lily_direction == .Left
-				{
-					edge_of_log_x : f32 = 0
-					is_lily_on_left_edge_of_log := lily_relative_log_pos_x <= edge_of_log_x
-					if !is_lily_on_left_edge_of_log
-					{
-						move_amount_x = -1
-					}
-					else
-					{
-						lily_direction = .Right
-					}
-				}
+					timer_start(&lily_lerp_timer)
+					move_amount_x : f32 = 0 
 
-				did_lily_move_amount_get_set := move_amount_x != 0
+					// FIXME(jblat): lily will jump to the edge again if she is on the edge
+					if lily_direction == .Right
+					{
+						edge_of_log_x := log_that_lily_is_on.rectangle.width - 1
+						is_lily_on_right_edge_of_log := lily_relative_log_pos_x >= edge_of_log_x
+						if !is_lily_on_right_edge_of_log
+						{
+							move_amount_x = 1
+						}
+						else
+						{
+							lily_direction = .Left
+						}
+					}
+					else if lily_direction == .Left
+					{
+						edge_of_log_x : f32 = 0
+						is_lily_on_left_edge_of_log := lily_relative_log_pos_x <= edge_of_log_x
+						if !is_lily_on_left_edge_of_log
+						{
+							move_amount_x = -1
+						}
+						else
+						{
+							lily_direction = .Right
+						}
+					}
 
-				if did_lily_move_amount_get_set
-				{
-					lily_relative_log_pos_x += move_amount_x
+					did_lily_move_amount_get_set := move_amount_x != 0
+
+					if did_lily_move_amount_get_set
+					{
+						lily_lerp_relative_log_start_x = lily_relative_log_pos_x
+						lily_lerp_relative_log_end_x = lily_lerp_relative_log_start_x + move_amount_x
+					}
+
+					timer_start(&lily_wait_timer)
 				}
-
 			}
+
+			// if timer_is_complete(lily_wait_timer) && timer_is_complete(lily_lerp_timer)
+			// {
+			// 	timer_start(&lily_lerp_timer)
+			// }
 		}
 		
 
@@ -795,6 +807,16 @@ game_update :: proc()
 			t = min(t, 1.0)
 			gmem.frogger_pos.x = (1.0 - t) * gmem.frogger_move_lerp_start_pos.x + t * gmem.frogger_move_lerp_end_pos.x
 			gmem.frogger_pos.y = (1.0 - t) * gmem.frogger_move_lerp_start_pos.y + t * gmem.frogger_move_lerp_end_pos.y
+		}
+
+
+		should_process_lily_lerp_timer := !timer_is_complete(lily_lerp_timer)
+		if should_process_lily_lerp_timer
+		{
+			timer_advance(&lily_lerp_timer, frame_time)
+			t := timer_percentage(lily_lerp_timer)
+			t = min(t, 1.0)
+			lily_relative_log_pos_x = (1.0 - t) * lily_lerp_relative_log_start_x + t * lily_lerp_relative_log_end_x
 		}
 
 
@@ -1097,7 +1119,8 @@ game_update :: proc()
 				lily_width,
 				lily_height
 			}
-			draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, lily_world_rectangle, sprite_sheet_cell_size, gmem.cell_size, 0)
+			rotation := map_direction_rotation[lily_direction]
+			draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, lily_world_rectangle, sprite_sheet_cell_size, gmem.cell_size, rotation)
 		}
 
 		{ // draw fly
