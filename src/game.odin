@@ -48,12 +48,23 @@ timer_advance :: proc(timer: ^Timer, dt: f32)
 	}
 }
 
+timer_percentage :: proc(timer: Timer) -> f32
+{
+	t := timer.amount / timer.duration
+	return t
+}
+
 
 timer_start :: proc(timer: ^Timer)
 {
 	timer.amount = 0
 }
 
+
+timer_stop :: proc(timer: ^Timer)
+{
+	timer.amount = timer.duration
+}
 
 
 Game_Memory :: struct
@@ -84,7 +95,7 @@ Game_Memory :: struct
 
 	// frogger
 	frogger_pos       : [2]f32,
-	frogger_move_lerp_timer     : f32,
+	frogger_move_lerp_timer     : Timer,
 	frogger_move_lerp_start_pos : [2]f32,
 	frogger_move_lerp_end_pos   : [2]f32,
 
@@ -425,8 +436,11 @@ lily_relative_log_pos_x : f32 = 0
 lily_width : f32 = 1
 lily_height : f32 = 1
 
-lily_wait_timer : f32 = 0
-lily_wait_duration : f32 = 1
+lily_wait_timer := Timer {
+	amount   = 0,
+	duration = 1,
+}
+
 lily_direction : Direction = .Right
 
 lily_lerp_timer : f32 = 0
@@ -555,7 +569,11 @@ game_init :: proc()
 	game_render_target := rl.LoadRenderTexture(game_screen_width, game_screen_height)
 	rl.SetTextureFilter(game_render_target.texture, rl.TextureFilter.BILINEAR)
 
-	frogger_move_lerp_timer  : f32 = frogger_move_lerp_duration
+	frogger_move_lerp_timer  := Timer {
+		amount = frogger_move_lerp_duration,
+		duration = frogger_move_lerp_duration,
+	}
+
 	frogger_move_lerp_start_pos : [2]f32
 	frogger_move_lerp_end_pos   : [2]f32
 
@@ -664,7 +682,7 @@ game_update :: proc()
 		is_frogger_death_anim_playing := frogger_death_anim_timer < get_anim_duration(frogger_death_anim_fps, len(frogger_death_anim_frames))
 
 
-		can_frogger_request_move := gmem.frogger_move_lerp_timer >= frogger_move_lerp_duration  && !is_frogger_death_anim_playing 
+		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !is_frogger_death_anim_playing 
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -713,7 +731,7 @@ game_update :: proc()
 
 				if !will_frogger_be_out_of_bounds_on_next_move 
 				{
-					gmem.frogger_move_lerp_timer = 0
+					timer_start(&gmem.frogger_move_lerp_timer)
 					gmem.frogger_move_lerp_start_pos = gmem.frogger_pos
 					gmem.frogger_move_lerp_end_pos = frogger_next_pos
 				}
@@ -724,11 +742,10 @@ game_update :: proc()
 		{ // lily
 			log_that_lily_is_on := floating_logs[lily_logs_to_spawn_on[lily_log_to_spawn_on_index]]
 
-			lily_wait_timer += frame_time
-			is_timer_complete := lily_wait_timer >= lily_wait_duration
-			if is_timer_complete
+			timer_advance(&lily_wait_timer, frame_time)
+			if timer_is_complete(lily_wait_timer)
 			{
-				lily_wait_timer = 0
+				timer_start(&lily_wait_timer)
 
 				move_amount_x : f32 = 0 
 
@@ -770,15 +787,12 @@ game_update :: proc()
 		}
 		
 
-		should_process_frogger_lerp_timer := gmem.frogger_move_lerp_timer < frogger_move_lerp_duration
+		should_process_frogger_lerp_timer := !timer_is_complete(gmem.frogger_move_lerp_timer)
 		if should_process_frogger_lerp_timer 
 		{
-			gmem.frogger_move_lerp_timer += frame_time
-			t := gmem.frogger_move_lerp_timer / frogger_move_lerp_duration
-			if t >= 1.0 
-			{
-				t = 1.0
-			}
+			timer_advance(&gmem.frogger_move_lerp_timer, frame_time)
+			t := timer_percentage(gmem.frogger_move_lerp_timer)
+			t = min(t, 1.0)
 			gmem.frogger_pos.x = (1.0 - t) * gmem.frogger_move_lerp_start_pos.x + t * gmem.frogger_move_lerp_end_pos.x
 			gmem.frogger_pos.y = (1.0 - t) * gmem.frogger_move_lerp_start_pos.y + t * gmem.frogger_move_lerp_end_pos.y
 		}
@@ -888,7 +902,7 @@ game_update :: proc()
 				{
 					gmem.is_frogs_on_lilypad[i] = true
 					gmem.frogger_pos = frogger_start_pos
-					gmem.frogger_move_lerp_timer = frogger_move_lerp_duration
+					timer_stop(&gmem.frogger_move_lerp_timer)
 					
 					if fly_lilypad_indices[fly_lilypad_index] == i
 					{
@@ -923,7 +937,7 @@ game_update :: proc()
 			is_frogger_out_of_bounds := gmem.frogger_pos.x + 0.5 < 0 || gmem.frogger_pos.x - 0.5 >= f32(gmem.number_of_grid_cells_on_axis_x) -1 || gmem.frogger_pos.y < 0 || gmem.frogger_pos.y > f32(gmem.number_of_grid_cells_on_axis_y)
 			if is_frogger_out_of_bounds 
 			{
-				gmem.frogger_move_lerp_timer = frogger_move_lerp_duration
+				timer_stop(&gmem.frogger_move_lerp_timer)
 				frogger_death_anim_timer = 0
 			}
 
@@ -933,20 +947,20 @@ game_update :: proc()
 				is_frogger_hit_by_vehicle := rl.CheckCollisionPointRec(frogger_center_pos, vehicle)
 				if is_frogger_hit_by_vehicle
 				{
-					gmem.frogger_move_lerp_timer = frogger_move_lerp_duration
+					timer_stop(&gmem.frogger_move_lerp_timer)
 					frogger_death_anim_timer = 0
 				}
 			}
 
 			frogger_on_log := false
-			is_frogger_moving := gmem.frogger_move_lerp_timer > 0
+			is_frogger_moving := !timer_is_complete(gmem.frogger_move_lerp_timer)
 			is_frogger_in_river_region := frogger_center_pos.y > river.y && frogger_center_pos.y < river.y + river.height
 			is_frogger_in_riverbed := rl.CheckCollisionPointRec(frogger_center_pos, riverbed)
 
 			did_frogger_collide_with_riverbed := is_frogger_in_riverbed
 			if did_frogger_collide_with_riverbed
 			{
-				gmem.frogger_move_lerp_timer = frogger_move_lerp_duration
+				timer_stop(&gmem.frogger_move_lerp_timer)
 				frogger_death_anim_timer = 0
 			}
 
@@ -986,7 +1000,7 @@ game_update :: proc()
 
 			if did_frogger_fall_in_river
 			{
-				gmem.frogger_move_lerp_timer = frogger_move_lerp_duration
+				timer_stop(&gmem.frogger_move_lerp_timer)
 				frogger_death_anim_timer = 0
 			}
 
