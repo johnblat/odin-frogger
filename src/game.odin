@@ -388,27 +388,6 @@ vehicles_speed := [?]f32{
 	-2, - 2
 }
 
-vehicles_colors := [?]rl.Color{
-	rl.YELLOW,
-	rl.YELLOW,
-	rl.YELLOW,
-
-	rl.WHITE,
-	rl.WHITE,
-	rl.WHITE,
-
-	rl.VIOLET,
-	rl.VIOLET,
-	rl.VIOLET,
-
-	rl.RED,
-	rl.RED,
-	rl.RED,
-
-	rl.LIGHTGRAY,
-	rl.LIGHTGRAY,
-}
-
 fly_lilypad_indices := [?]int{3, 1, 3, 1, 0, 2, 4, 3, 1, 0}
 fly_lilypad_index : int  = 0 // index into array above, not the lilypad
 fly_timer := Timer{
@@ -550,7 +529,7 @@ game_reset_entities :: proc(mem: ^Game_Memory)
 
 	gmem.vehicles = vehicles[:]
 	gmem.vehicles_speed = vehicles_speed[:]
-	gmem.vehicles_colors = vehicles_colors[:]
+	//gmem.vehicles_colors = vehicles_colors[:]
 	gmem.vehicle_positions = vehicle_positions[:]
 }
 
