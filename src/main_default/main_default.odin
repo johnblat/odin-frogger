@@ -28,7 +28,6 @@ main :: proc () {
 	for game.game_should_run() 
 	{
 		game.game_update()
-
 	}
 
 }

@@ -414,6 +414,7 @@ lily_sprite_sheet_clip := rl.Rectangle {2, 1, 1, 1}
 lily_relative_log_pos_x : f32 = 0
 lily_width : f32 = 1
 lily_height : f32 = 1
+lily_is_on_frogger := false
 
 lily_wait_timer := Timer {
 	amount   = 0,
@@ -728,7 +729,6 @@ game_update :: proc()
 				timer_advance(&lily_wait_timer, frame_time)
 				if timer_is_complete(lily_wait_timer)
 				{
-					timer_start(&lily_lerp_timer)
 					move_amount_x : f32 = 0 
 
 					// FIXME(jblat): lily will jump to the edge again if she is on the edge
@@ -765,6 +765,8 @@ game_update :: proc()
 					{
 						lily_lerp_relative_log_start_x = lily_relative_log_pos_x
 						lily_lerp_relative_log_end_x = lily_lerp_relative_log_start_x + move_amount_x
+						timer_start(&lily_lerp_timer)
+
 					}
 
 					timer_start(&lily_wait_timer)
