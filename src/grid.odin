@@ -86,3 +86,13 @@ draw_text_on_grid_right_justified :: proc(font: rl.Font, text: cstring, pos: [2]
 	}
 	draw_text_on_grid(font, text, dst_pos, size, spacing, tint, grid_cell_size)
 }
+
+draw_text_on_grid_centered :: proc(font: rl.Font, text: cstring, pos: [2]f32, size, spacing: f32, tint: rl.Color, grid_cell_size: f32)
+{
+	text_dimensions := rl.MeasureTextEx(gmem.font, text, size, spacing)
+	dst_pos := [2]f32 {
+		pos.x - f32(text_dimensions.x)/2,
+		pos.y,
+	}
+	draw_text_on_grid(font, text, dst_pos, size, spacing, tint, grid_cell_size)
+}

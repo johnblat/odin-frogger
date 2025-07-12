@@ -146,7 +146,7 @@ main :: proc()
 			{
 				fmt.printf("%s", stderr)
 			}
-		}
+		}	
 
 
 		game_dll_modification_time, get_modification_time_error := os.last_write_time_by_name(GAME_DLL_PATH)
