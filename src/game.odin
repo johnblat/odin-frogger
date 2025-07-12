@@ -2,9 +2,11 @@ package game
 
 import rl "vendor:raylib"
 import "core:math"
+import "core:fmt"
 
-image_data_sprite_sheet := #load("frogger_sprite_sheet_modified.png")
+image_data_sprite_sheet_bytes := #load("frogger_sprite_sheet_modified.png")
 image_data_background   := #load("frogger_background_modified.png")
+font_data_bytes         := #load("joystix monospace.otf")
 
 sprite_sheet_cell_size : f32 = 16
 
@@ -85,6 +87,8 @@ Game_Memory :: struct
 	texture_sprite_sheet : rl.Texture2D,
 	texture_background   : rl.Texture2D,
 
+	// Font
+	font :rl.Font,
 
 	// DEBUG
 	dbg_show_grid : bool,
@@ -102,8 +106,11 @@ Game_Memory :: struct
 	frogger_sprite_rotation: f32,
 
 	// win
-	is_frogs_on_lilypad :[5]bool,
+	is_frog_on_lilypads :[5]bool,
+
+	// score
 	score :int,
+	score_frogger_max_y_tracker : f32,
 
 	// entities
 	floating_logs :[]Entity,
@@ -133,66 +140,6 @@ lilypads := [5]rl.Rectangle{
 }
 
 
-get_rectangle_on_grid :: proc(rectangle: rl.Rectangle, cell_size: f32) -> rl.Rectangle
-{
-	ret := rl.Rectangle {
-		rectangle.x      * cell_size,
-		rectangle.y      * cell_size,
-		rectangle.width  * cell_size,
-		rectangle.height * cell_size,
-	}
-
-	return ret
-}
-
-
-draw_rectangle_on_grid :: proc(rectangle: rl.Rectangle, color: rl.Color, cell_size: f32)
-{
-	render_rectangle := get_rectangle_on_grid(rectangle, cell_size)
-	rl.DrawRectangleRec(render_rectangle, color)
-}
-
-
-draw_rectangle_lines_on_grid :: proc(rectangle: rl.Rectangle, line_thick: f32, color: rl.Color, cell_size: f32)
-{
-	render_rectangle := get_rectangle_on_grid(rectangle, cell_size)
-	rl.DrawRectangleLinesEx(render_rectangle, line_thick, color)
-}
-
-
-get_grid_cell_rectangle :: proc(grid_pos: [2]f32, cell_size: f32) -> rl.Rectangle
-{
-	ret := rl.Rectangle{
-		grid_pos.x * cell_size,
-		grid_pos.y * cell_size,
-		cell_size,
-		cell_size
-	}
-
-	return ret
-}
-
-
-draw_sprite_sheet_clip_on_grid :: proc(sprite_sheet: rl.Texture2D, src_grid_pos, dst_grid_pos: [2]f32, src_cell_size, dst_cell_size, rotation: f32) 
-{
-	src_rect := get_grid_cell_rectangle(src_grid_pos, src_cell_size)
-	dst_rect := get_grid_cell_rectangle(dst_grid_pos, dst_cell_size)
-	dst_midpoint := [2]f32{dst_rect.width / 2, dst_rect.height / 2}
-	dst_rect.x += dst_midpoint.x
-	dst_rect.y += dst_midpoint.y
-	rl.DrawTexturePro(sprite_sheet, src_rect, dst_rect, [2]f32{dst_midpoint.x, dst_midpoint.y}, rotation, rl.WHITE)
-}
-
-
-draw_sprite_sheet_rectangle_clip_on_grid :: proc(sprite_sheet: rl.Texture2D, src_grid, dst_grid: rl.Rectangle, src_cell_size, dst_cell_size, rotation: f32) 
-{
-	src_rect := get_rectangle_on_grid(src_grid, src_cell_size)
-	dst_rect := get_rectangle_on_grid(dst_grid, dst_cell_size)
-	dst_midpoint := [2]f32{dst_rect.width / 2, dst_rect.height / 2}
-	dst_rect.x += dst_midpoint.x
-	dst_rect.y += dst_midpoint.y
-	rl.DrawTexturePro(sprite_sheet, src_rect, dst_rect, [2]f32{dst_midpoint.x, dst_midpoint.y}, rotation, rl.WHITE)
-}
 
 
 @(export)
@@ -583,18 +530,26 @@ game_init :: proc()
 	gmem.frogger_move_lerp_start_pos = frogger_move_lerp_start_pos
 	gmem.frogger_move_lerp_end_pos = frogger_move_lerp_end_pos
 
-	gmem.is_frogs_on_lilypad = is_frogs_on_lilypad
+	gmem.is_frog_on_lilypads = is_frogs_on_lilypad
 
-	image_sprite_sheet := rl.LoadImageFromMemory(".png", &image_data_sprite_sheet[0], i32(len(image_data_sprite_sheet)))
+	image_sprite_sheet := rl.LoadImageFromMemory(".png", &image_data_sprite_sheet_bytes[0], i32(len(image_data_sprite_sheet_bytes)))
 	image_background   := rl.LoadImageFromMemory(".png", &image_data_background[0], i32(len(image_data_background)))
 
 	gmem.texture_sprite_sheet = rl.LoadTextureFromImage(image_sprite_sheet)
 	gmem.texture_background   = rl.LoadTextureFromImage(image_background)
 
+	gmem.font = rl.LoadFontFromMemory(".otf", &font_data_bytes[0], i32(len(font_data_bytes)), 256, nil, 0)
+
+	gmem.score_frogger_max_y_tracker = gmem.frogger_pos.y - 1
 	game_reset_entities(gmem)
 }
 
 
+frogger_reset :: proc(pos: [2]f32)
+{
+	gmem.frogger_pos = pos
+	gmem.score_frogger_max_y_tracker = pos.y - 1
+}
 
 
 get_anim_current_frame_index :: proc(t, fps: f32, number_of_frames: int) -> int
@@ -658,7 +613,6 @@ game_update :: proc()
 	riverbed := rl.Rectangle{0, 1, 14,2}
 
 
-
 	if !gmem.pause
 	{	
 		is_frogger_death_anim_playing := frogger_death_anim_timer < get_anim_duration(frogger_death_anim_fps, len(frogger_death_anim_frames))
@@ -717,6 +671,16 @@ game_update :: proc()
 					gmem.frogger_move_lerp_start_pos = gmem.frogger_pos
 					gmem.frogger_move_lerp_end_pos = frogger_next_pos
 				}
+			}
+		}
+
+		{ // frogger get points for moving up
+			point_value : int = 10
+			should_award_points := gmem.frogger_pos.y <= gmem.score_frogger_max_y_tracker
+			if should_award_points
+			{
+				gmem.score_frogger_max_y_tracker -= 1
+				gmem.score += point_value
 			}
 		}
 
@@ -815,7 +779,7 @@ game_update :: proc()
 				is_death_animation_complete := frogger_death_anim_timer == frogger_death_animation_duration
 				if is_death_animation_complete
 				{
-					gmem.frogger_pos = frogger_start_pos
+					frogger_reset(frogger_start_pos)
 				}
 			}			
 		}
@@ -841,7 +805,7 @@ game_update :: proc()
 				{
 					fly_lilypad_index = 0
 				}
-				for gmem.is_frogs_on_lilypad[fly_lilypad_indices[fly_lilypad_index]]
+				for gmem.is_frog_on_lilypads[fly_lilypad_indices[fly_lilypad_index]]
 				{
 					fly_lilypad_index += 1
 					if fly_lilypad_index >= len(fly_lilypad_indices)
@@ -898,13 +862,12 @@ game_update :: proc()
 		{
 			for lilypad, i in lilypads 
 			{	
-				frogger_center_pos := gmem.frogger_pos + 0.5
-				is_frogger_on_lilypad := rl.CheckCollisionPointRec(frogger_center_pos, lilypad)
-				is_there_already_a_frog_here := gmem.is_frogs_on_lilypad[i]
+				is_frogger_on_lilypad := gmem.frogger_pos.y <= lilypad.y
+				is_there_already_a_frog_here := gmem.is_frog_on_lilypads[i]
 				if is_frogger_on_lilypad && !is_there_already_a_frog_here
 				{
-					gmem.is_frogs_on_lilypad[i] = true
-					gmem.frogger_pos = frogger_start_pos
+					gmem.is_frog_on_lilypads[i] = true
+					frogger_reset(frogger_start_pos)
 					timer_stop(&gmem.frogger_move_lerp_timer)
 					
 					if fly_lilypad_indices[fly_lilypad_index] == i
@@ -915,7 +878,7 @@ game_update :: proc()
 			}
 
 			number_of_frogs_on_lilypad := 0
-			for present in gmem.is_frogs_on_lilypad
+			for present in gmem.is_frog_on_lilypads
 			{
 				if present
 				{
@@ -923,10 +886,10 @@ game_update :: proc()
 				}
 			}
 
-			is_all_frogs_on_lilypads := number_of_frogs_on_lilypad == len(gmem.is_frogs_on_lilypad)
+			is_all_frogs_on_lilypads := number_of_frogs_on_lilypad == len(gmem.is_frog_on_lilypads)
 			if is_all_frogs_on_lilypads
 			{
-				for &present in gmem.is_frogs_on_lilypad
+				for &present in gmem.is_frog_on_lilypads
 				{
 					present = false
 				}
@@ -1050,6 +1013,7 @@ game_update :: proc()
 			rl.DrawTextureEx(gmem.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
+
 		{ // draw obstacles
 			for log, i in gmem.floating_logs 
 			{
@@ -1079,6 +1043,7 @@ game_update :: proc()
 
 		}
 
+
 		{ // draw frogger
 			is_frogger_death_anim_playing := frogger_death_anim_timer < get_anim_duration(frogger_death_anim_fps, len(frogger_death_anim_frames))
 			anim_timer    : f32 =    is_frogger_death_anim_playing ? frogger_death_anim_timer     : frogger_anim_timer.amount
@@ -1091,6 +1056,7 @@ game_update :: proc()
 			draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, rectangle, sprite_sheet_cell_size, gmem.cell_size, rotation)
 		}
 
+		
 		{ // draw lily
 			log_that_lily_is_on := lily_logs_to_spawn_on[lily_log_to_spawn_on_index]
 			log := floating_logs[log_that_lily_is_on]
@@ -1104,6 +1070,7 @@ game_update :: proc()
 			draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, lily_world_rectangle, sprite_sheet_cell_size, gmem.cell_size, rotation)
 		}
 
+		
 		{ // draw fly
 			clip := fly_is_active ? fly_sprite_sheet_clip : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
@@ -1111,10 +1078,11 @@ game_update :: proc()
 			draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, clip, dst_rect, sprite_sheet_cell_size, gmem.cell_size, 0)
 		}
  
+		
 		{ // draw frogs on lilypads
 			for lp, i in lilypads
 			{	
-				is_there_a_frog_on_this_lilypad := gmem.is_frogs_on_lilypad[i]
+				is_there_a_frog_on_this_lilypad := gmem.is_frog_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
 					draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, happy_frog_sprite_clip_closed_mouth, lp, sprite_sheet_cell_size, gmem.cell_size, 0)
@@ -1142,13 +1110,34 @@ game_update :: proc()
 			}
 		}
 
+		
 		if gmem.dbg_show_entity_bounding_rectangles
 		{	
 			frogger_rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
 			draw_rectangle_lines_on_grid(frogger_rectangle, 4, rl.GREEN, gmem.cell_size)
 
 			// TODO(jblat): draw the rest of the stuff like logs and whatnot
-		}			
+		}
+
+		
+		{ // heads up display
+			heads_up_display_font_size : f32 = 0.7
+
+			one_up_pos := [2]f32{
+				4,
+				0,
+			}
+
+			draw_text_on_grid_right_justified(gmem.font, "1-UP", one_up_pos, heads_up_display_font_size, 0, rl.WHITE, f32(gmem.cell_size))
+
+			score_text := fmt.ctprintf("%05d", gmem.score)
+			score_text_pos := [2]f32 {
+				one_up_pos.x,
+				one_up_pos.y + heads_up_display_font_size
+			}
+
+			draw_text_on_grid_right_justified(gmem.font, score_text, score_text_pos, heads_up_display_font_size, 0, rl.WHITE, f32(gmem.cell_size))
+		}	
 	}
 
 	{ // DRAW TO WINDOW
@@ -1168,4 +1157,5 @@ game_update :: proc()
 		rl.DrawTexturePro(gmem.game_render_target.texture, src, dst, [2]f32{0,0}, 0, rl.WHITE)
 	}
 
+	free_all(context.temp_allocator)
 }

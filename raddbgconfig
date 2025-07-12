@@ -13,6 +13,6 @@ target:
 target:
 {
   executable: "build/hot_reload/game_hot_reload.exe"
-  enabled: 1
   working_directory: ""
+  enabled: 1
 }

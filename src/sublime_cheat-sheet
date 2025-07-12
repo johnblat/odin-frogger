@@ -99,6 +99,11 @@ Find Next: F3 (Find > Find Next)
 
 Find Previous: Shift+F3 (Find > Find Previous)
 
+	{ "keys": ["ctrl+pagedown"], "command": "next_view" },
+	{ "keys": ["ctrl+shift+pagedown"], "command": "next_view", "args": {"extend": true} },
+	{ "keys": ["ctrl+pageup"], "command": "prev_view" },
+	{ "keys": ["ctrl+shift+pageup"], "command": "prev_view", "args": {"extend": true} },
+	
 Replace: Ctrl+H (Find > Replace…)
 
 Find in files (Navigate using F4, Shift+F4): Ctrl+Shift+F (Find > Find in Files…)
