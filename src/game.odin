@@ -609,7 +609,7 @@ game_update :: proc()
 	diving_turtle_underwater_frame : int = 5
 
 
-	river := rl.Rectangle{0, 2, 14, 6}
+	river := rl.Rectangle{0, 3, 14, 5}
 	riverbed := rl.Rectangle{0, 1, 14,2}
 
 
@@ -736,11 +736,6 @@ game_update :: proc()
 					timer_start(&lily_wait_timer)
 				}
 			}
-
-			// if timer_is_complete(lily_wait_timer) && timer_is_complete(lily_lerp_timer)
-			// {
-			// 	timer_start(&lily_lerp_timer)
-			// }
 		}
 		
 
@@ -862,7 +857,8 @@ game_update :: proc()
 		{
 			for lilypad, i in lilypads 
 			{	
-				is_frogger_on_lilypad := gmem.frogger_pos.y <= lilypad.y
+				frogger_center_pos := gmem.frogger_pos + 0.5
+				is_frogger_on_lilypad := rl.CheckCollisionPointRec(frogger_center_pos, lilypad)
 				is_there_already_a_frog_here := gmem.is_frog_on_lilypads[i]
 				if is_frogger_on_lilypad && !is_there_already_a_frog_here
 				{
@@ -897,7 +893,7 @@ game_update :: proc()
 		}
 
 
-		should_check_for_game_over := !is_frogger_death_anim_playing
+		should_check_for_game_over := !is_frogger_death_anim_playing  && !gmem.dbg_is_frogger_unkillable
 		if should_check_for_game_over 
 		{
 			is_frogger_out_of_bounds := gmem.frogger_pos.x + 0.5 < 0 || gmem.frogger_pos.x - 0.5 >= f32(gmem.number_of_grid_cells_on_axis_x) -1 || gmem.frogger_pos.y < 0 || gmem.frogger_pos.y > f32(gmem.number_of_grid_cells_on_axis_y)
@@ -923,7 +919,16 @@ game_update :: proc()
 			is_frogger_in_river_region := frogger_center_pos.y > river.y && frogger_center_pos.y < river.y + river.height
 			is_frogger_in_riverbed := rl.CheckCollisionPointRec(frogger_center_pos, riverbed)
 
-			did_frogger_collide_with_riverbed := is_frogger_in_riverbed
+			is_frogger_on_one_of_the_open_lilypads := false
+			for lilypad, i in lilypads
+			{
+				is_frogger_on_lilypad := rl.CheckCollisionPointRec(frogger_center_pos, lilypad)
+				is_frog_already_here := gmem.is_frog_on_lilypads[i]
+				is_frogger_on_one_of_the_open_lilypads = is_frogger_on_one_of_the_open_lilypads || (is_frogger_on_lilypad && !is_frog_already_here)
+			}
+
+			did_frogger_collide_with_riverbed := is_frogger_in_riverbed && !is_frogger_on_one_of_the_open_lilypads
+
 			if did_frogger_collide_with_riverbed
 			{
 				timer_stop(&gmem.frogger_move_lerp_timer)
