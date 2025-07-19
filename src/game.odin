@@ -81,6 +81,10 @@ Game_Memory :: struct
 	vehicles :[]Entity,
 
 	pause : bool,
+
+	lives: int,
+	counter_cycle: int,
+	counter_level: int,
 }
 
 
