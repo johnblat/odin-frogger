@@ -1,0 +1,18 @@
+// raddbg 0.9.20 project file
+
+recent_file: path: "game.odin"
+recent_file: path: "main_hot_reload/main_hot_reload.odin"
+recent_file: path: "../../../../../../odin-windows-amd64-dev-2025-03/base/runtime/internal.odin"
+recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/startup/dll_dllmain.cpp"
+recent_file: path: "../main.odin"
+target:
+{
+  executable: "../frogger.exe"
+  working_directory: ""
+}
+target:
+{
+  executable: "../build/hot_reload/game_hot_reload.exe"
+  working_directory: ../
+  enabled: 1
+}

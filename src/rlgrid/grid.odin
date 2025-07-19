@@ -1,6 +1,8 @@
-package game
+package rlgrid
 
 import rl "vendor:raylib"
+
+
 
 get_rectangle_on_grid :: proc(rectangle: rl.Rectangle, cell_size: f32) -> rl.Rectangle
 {
@@ -79,7 +81,7 @@ draw_text_on_grid :: proc(font: rl.Font, text: cstring, pos: [2]f32, size: f32, 
 
 draw_text_on_grid_right_justified :: proc(font: rl.Font, text: cstring, pos: [2]f32, size, spacing: f32, tint: rl.Color, grid_cell_size: f32)
 {
-	text_dimensions := rl.MeasureTextEx(gmem.font, text, size, spacing)
+	text_dimensions := rl.MeasureTextEx(font, text, size, spacing)
 	dst_pos := [2]f32 {
 		pos.x - f32(text_dimensions.x),
 		pos.y,
@@ -89,7 +91,7 @@ draw_text_on_grid_right_justified :: proc(font: rl.Font, text: cstring, pos: [2]
 
 draw_text_on_grid_centered :: proc(font: rl.Font, text: cstring, pos: [2]f32, size, spacing: f32, tint: rl.Color, grid_cell_size: f32)
 {
-	text_dimensions := rl.MeasureTextEx(gmem.font, text, size, spacing)
+	text_dimensions := rl.MeasureTextEx(font, text, size, spacing)
 	dst_pos := [2]f32 {
 		pos.x - f32(text_dimensions.x)/2,
 		pos.y,

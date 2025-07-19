@@ -14,4 +14,5 @@ main :: proc () {
 		game.game_update()
 	}
 
+	game.game_shutdown()
 }

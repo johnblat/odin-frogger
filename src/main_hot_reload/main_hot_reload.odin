@@ -24,6 +24,7 @@ Game_API :: struct
 	memory_size: proc() -> int,
 	hot_reload: proc(mem: rawptr),
 	is_build_requested: proc() -> bool,
+	shutdown: proc(),
 	free_memory: proc()
 }
 
@@ -202,4 +203,6 @@ main :: proc()
 
 		free_all(context.temp_allocator)
 	}
+
+	game_api.shutdown()
 }
