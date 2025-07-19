@@ -7,14 +7,12 @@ import "core:mem"
 import "core:os/os2"
 import rlgrid "./rlgrid"
 
-image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
-image_data_background         := #load("../assets/frogger_background_colton.png")
-font_data_bytes               := #load("../assets/joystix monospace.otf")
+bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
+bytes_image_data_background         := #load("../assets/frogger_background_colton.png")
+bytes_font_data                     := #load("../assets/joystix monospace.otf")
 
-sprite_sheet_cell_size : f32 = 16
-
-
-filename_window_save_data := "window_save_data.frog"
+global_sprite_sheet_cell_size : f32 = 16
+global_filename_window_save_data := "window_save_data.frog"
 
 Window_Save_Data :: struct
 {
@@ -68,6 +66,12 @@ Game_Memory :: struct
 	// score
 	score :int,
 	score_frogger_max_y_tracker : f32,
+
+	timer_is_active_score_100: Timer,
+	timer_is_active_score_200: Timer,
+
+	pos_score_100: [2]f32,
+	pos_score_200: [2]f32,
 
 
 	// entities
@@ -164,7 +168,7 @@ game_init_platform :: proc()
 
 	window_save_data := Window_Save_Data{}
 
-	bytes_window_save_data, err := os2.read_entire_file_from_path(filename_window_save_data, context.temp_allocator)
+	bytes_window_save_data, err := os2.read_entire_file_from_path(global_filename_window_save_data, context.temp_allocator)
 
 	mem.copy(&window_save_data, &bytes_window_save_data[0], size_of(window_save_data))
 
@@ -337,6 +341,10 @@ fly_is_active : bool     = false
 fly_sprite_sheet_clip   := rl.Rectangle {2, 6, 1, 1}
 
 
+global_sprite_clip_score_100 := rl.Rectangle {0, 6, 1, 1}
+global_sprite_clip_score_200 := rl.Rectangle {1, 6, 1, 1}
+
+
 Direction :: enum {
 	Up, Down, Left, Right
 }
@@ -504,13 +512,13 @@ game_init :: proc()
 
 	gmem.is_frog_on_lilypads = is_frogs_on_lilypad
 
-	image_sprite_sheet := rl.LoadImageFromMemory(".png", &image_data_sprite_sheet_bytes[0], i32(len(image_data_sprite_sheet_bytes)))
-	image_background   := rl.LoadImageFromMemory(".png", &image_data_background[0], i32(len(image_data_background)))
+	image_sprite_sheet := rl.LoadImageFromMemory(".png", &bytes_image_data_sprite_sheet_bytes[0], i32(len(bytes_image_data_sprite_sheet_bytes)))
+	image_background   := rl.LoadImageFromMemory(".png", &bytes_image_data_background[0], i32(len(bytes_image_data_background)))
 
 	gmem.texture_sprite_sheet = rl.LoadTextureFromImage(image_sprite_sheet)
 	gmem.texture_background   = rl.LoadTextureFromImage(image_background)
 
-	gmem.font = rl.LoadFontFromMemory(".otf", &font_data_bytes[0], i32(len(font_data_bytes)), 256, nil, 0)
+	gmem.font = rl.LoadFontFromMemory(".otf", &bytes_font_data[0], i32(len(bytes_font_data)), 256, nil, 0)
 
 	gmem.score_frogger_max_y_tracker = gmem.frogger_pos.y - 1
 
@@ -519,6 +527,9 @@ game_init :: proc()
 		duration = 2.0,
 		loop = false,
 	}
+
+	gmem.timer_is_active_score_100 = timer_init(2.0, false)
+	gmem.timer_is_active_score_200 = timer_init(2.0, false)
 
 	frogger_is_dying_duration : f32 = animation_get_duration(frogger_death_anim_fps, len(frogger_death_anim_frames)) 
 
@@ -536,11 +547,14 @@ frogger_reset :: proc(pos: [2]f32)
 {
 	gmem.frogger_pos = pos
 	gmem.score_frogger_max_y_tracker = pos.y - 1
+	gmem.is_lily_on_frogger = false
+	timer_stop(&gmem.frogger_move_lerp_timer)
 }
 
 
 frogger_start_dying :: proc()
 {
+	gmem.is_lily_on_frogger = false
 	timer_stop(&gmem.frogger_move_lerp_timer)
 	timer_start(&gmem.frogger_is_dying_timer)
 }
@@ -682,7 +696,6 @@ game_update :: proc()
 				{
 					move_amount_x : f32 = 0 
 
-					// FIXME(jblat): lily will jump to the edge again if she is on the edge
 					if lily_direction == .Right
 					{
 						edge_of_log_x := log_that_lily_is_on.rectangle.width - 1
@@ -768,8 +781,10 @@ game_update :: proc()
 		}
 
 
-		{ // frogger animation
+		{
 			timer_advance(&frogger_anim_timer, frame_time)
+			timer_advance(&gmem.timer_is_active_score_100, frame_time)
+			timer_advance(&gmem.timer_is_active_score_200, frame_time)
 		}
 
 
@@ -836,6 +851,7 @@ game_update :: proc()
 
 
 		should_check_for_win_condtions := !timer_is_playing(gmem.frogger_is_dying_timer) && !timer_is_playing(gmem.level_end_timer)
+		
 		if should_check_for_win_condtions 
 		{
 			for lilypad, i in lilypads 
@@ -843,19 +859,41 @@ game_update :: proc()
 				frogger_center_pos := gmem.frogger_pos + 0.5
 				is_frogger_on_lilypad := rl.CheckCollisionPointRec(frogger_center_pos, lilypad)
 				is_there_already_a_frog_here := gmem.is_frog_on_lilypads[i]
-				if is_frogger_on_lilypad && !is_there_already_a_frog_here
+				did_get_frogger_home := is_frogger_on_lilypad && !is_there_already_a_frog_here
+				
+				if did_get_frogger_home 
 				{
 					gmem.is_frog_on_lilypads[i] = true
-					frogger_reset(frogger_start_pos)
-					timer_stop(&gmem.frogger_move_lerp_timer)
 
 					// NOTE(jblat): The extra 10 is essentially to give the effect of getting the 10 points from advancing a tile
-					gmem.score += 110
+					score_amount_get_frogger_home := 110
+					gmem.score += score_amount_get_frogger_home
 					
-					if fly_lilypad_indices[fly_lilypad_index] == i
+					did_frogger_get_fly := fly_lilypad_indices[fly_lilypad_index] == i
+					if did_frogger_get_fly
 					{
-						gmem.score += 100
+						score_amount_frogger_get_fly := 100
+						gmem.score += score_amount_frogger_get_fly
+						timer_start(&gmem.timer_is_active_score_100)
+						gmem.pos_score_100.x = lilypad.x
+						gmem.pos_score_100.y = lilypad.y - 1
 					}
+
+					if gmem.is_lily_on_frogger
+					{
+						score_amount_get_lily_home := 200
+						gmem.score += score_amount_get_lily_home
+						timer_start(&gmem.timer_is_active_score_200)
+						gmem.pos_score_200.x = lilypad.x
+						gmem.pos_score_200.y = lilypad.y - 1
+						if did_frogger_get_fly
+						{
+							// make more room
+							gmem.pos_score_200.y -= 1
+						}
+					}
+
+					frogger_reset(frogger_start_pos)
 				}
 			}
 
@@ -1008,7 +1046,7 @@ game_update :: proc()
 		rl.ClearBackground(rl.LIGHTGRAY) 
 
 		{ // draw background
-			scale : f32 =  global_cell_size / sprite_sheet_cell_size
+			scale : f32 =  global_cell_size / global_sprite_sheet_cell_size
 			rl.DrawTextureEx(gmem.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
@@ -1017,19 +1055,19 @@ game_update :: proc()
 			for log, i in gmem.floating_logs 
 			{
 				log_sprite_clip := floating_logs_sprite_clips[i]
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, log_sprite_clip, log.rectangle, sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, log_sprite_clip, log.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
 			}
 
 			for vehicle, i in gmem.vehicles
 			{
 				vehicle_sprite_sheet_clip := vehicle_sprite_sheet_clips[i]
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_clip, vehicle.rectangle, sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_clip, vehicle.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
 			}
 
 			regular_turtles_current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(regular_turtles_anim_timer, regular_turtles_anim_fps, regular_turtle_anim_frames[:])
 			for turtle in gmem.turtles
 			{
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, regular_turtles_current_frame_sprite_sheet_clip_rectangle, turtle.rectangle, sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, regular_turtles_current_frame_sprite_sheet_clip_rectangle, turtle.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
 			}
 
 
@@ -1037,9 +1075,8 @@ game_update :: proc()
 			{
 				anim_timer := diving_turtles_anim_timers[i]
 				diving_turtles_current_frame_sprite_sheet_clilp_rectangle := animation_get_frame_sprite_clip(anim_timer, diving_turtles_anim_fps, diving_turtle_anim_frames[:])
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle, turtle.rectangle, sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle, turtle.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
 			}
-
 		}
 
 
@@ -1047,8 +1084,10 @@ game_update :: proc()
 			clip := fly_is_active ? fly_sprite_sheet_clip : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
-			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, clip, dst_rect, sprite_sheet_cell_size, global_cell_size, 0)
+			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, clip, dst_rect, global_sprite_sheet_cell_size, global_cell_size, 0)
 		}
+
+		
  
 		
 		{ // draw frogs on lilypads
@@ -1057,7 +1096,7 @@ game_update :: proc()
 				is_there_a_frog_on_this_lilypad := gmem.is_frog_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
-					rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, happy_frog_sprite_clip_closed_mouth, lp, sprite_sheet_cell_size, global_cell_size, 0)
+					rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, happy_frog_sprite_clip_closed_mouth, lp, global_sprite_sheet_cell_size, global_cell_size, 0)
 				}
 			}
 		}
@@ -1070,7 +1109,7 @@ game_update :: proc()
 			
 			current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(anim_timer, anim_fps, frames)
 			rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, rectangle, sprite_sheet_cell_size, global_cell_size, rotation)
+			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, rectangle, global_sprite_sheet_cell_size, global_cell_size, rotation)
 		}
 
 		
@@ -1095,7 +1134,7 @@ game_update :: proc()
 				{
 					dst_rectangle.x += 0.15
 				}
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, dst_rectangle, sprite_sheet_cell_size, global_cell_size, rotation)
+				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, dst_rectangle, global_sprite_sheet_cell_size, global_cell_size, rotation)
 			}
 			else 
 			{
@@ -1108,10 +1147,21 @@ game_update :: proc()
 					lily_height
 				}
 				rotation := map_direction_rotation[lily_direction]
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, lily_world_rectangle, sprite_sheet_cell_size, global_cell_size, rotation)
+				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, lily_world_rectangle, global_sprite_sheet_cell_size, global_cell_size, rotation)
 			}
 		}
 
+		if timer_is_playing(gmem.timer_is_active_score_100)
+		{
+			dst_rect := rl.Rectangle {gmem.pos_score_100.x, gmem.pos_score_100.y, 1, 1}
+			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_100, dst_rect, global_sprite_sheet_cell_size, global_cell_size, 0)
+		}
+
+		if timer_is_playing(gmem.timer_is_active_score_200)
+		{
+			dst_rect := rl.Rectangle {gmem.pos_score_200.x, gmem.pos_score_200.y, 1, 1}
+			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_200, dst_rect, global_sprite_sheet_cell_size, global_cell_size, 0)			
+		}
 	
 		if gmem.dbg_show_grid 
 		{ 	
@@ -1196,13 +1246,13 @@ game_shutdown :: proc()
 	screen_height := rl.GetScreenHeight()
 
 	window_save_data := Window_Save_Data {i32(window_pos.x), i32(window_pos.y), screen_width, screen_height}
-	window_save_data_bytes := mem.ptr_to_bytes(&window_save_data)
-	file_window_save_data, err := os2.open(filename_window_save_data, {.Write, .Create})
+	bytes_window_save_data := mem.ptr_to_bytes(&window_save_data)
+	file_window_save_data, err := os2.open(global_filename_window_save_data, {.Write, .Create})
 	if err != nil
 	{
 		fmt.printfln("Error opening/creating Window Save Data File: %v", err)
 	}
-	n_bytes_written, write_err := os2.write(file_window_save_data, window_save_data_bytes)
+	n_bytes_written, write_err := os2.write(file_window_save_data, bytes_window_save_data)
 	if write_err != nil
 	{
 		fmt.printfln("Error saving Window Save Data: %v", write_err)
