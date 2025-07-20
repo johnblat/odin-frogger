@@ -2,8 +2,6 @@ package rlgrid
 
 import rl "vendor:raylib"
 
-
-
 get_rectangle_on_grid :: proc(rectangle: rl.Rectangle, cell_size: f32) -> rl.Rectangle
 {
 	ret := rl.Rectangle {

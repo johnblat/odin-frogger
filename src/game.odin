@@ -873,7 +873,8 @@ game_update :: proc()
 					score_amount_get_frogger_home := 110
 					gmem.score += score_amount_get_frogger_home
 					
-					did_frogger_get_fly := fly_lilypad_indices[fly_lilypad_index] == i
+
+					did_frogger_get_fly := fly_lilypad_indices[fly_lilypad_index] == i && fly_is_active
 					if did_frogger_get_fly
 					{
 						score_amount_frogger_get_fly := 100
