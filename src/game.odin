@@ -20,6 +20,7 @@ Window_Save_Data :: struct
 }
 
 
+
 Entity :: struct
 {
 	rectangle : rl.Rectangle,
@@ -200,6 +201,7 @@ game_init_platform :: proc()
 
 	//
 	rl.SetWindowPosition(window_pos_x, window_pos_y)
+	rl.SetWindowSize(window_width, window_height)
 
 	after_set_pos_monitor_id := rl.GetCurrentMonitor()
 	after_set_pos_monitor_pos := rl.GetMonitorPosition(after_set_pos_monitor_id)
@@ -230,7 +232,7 @@ game_init_platform :: proc()
 }
 
 
-happy_frog_sprite_clip_closed_mouth := rl.Rectangle{3, 6, 1, 1}
+sprite_sheet_clip_happy_frog_closed_mouth := rl.Rectangle{3, 6, 1, 1}
 
 is_frogs_on_lilypad := [5]bool{true, true, true, true, false}
 
@@ -253,18 +255,23 @@ vehicles := [?]Entity {
 }
 
 
-yellow_car_sprite_sheet_clip := rl.Rectangle{3,0,1,1}
-bulldozer_sprite_sheet_clip  := rl.Rectangle{4,0,1,1}
-purple_car_sprite_sheet_clip := rl.Rectangle{7,0,1,1}
-white_car_sprite_sheet_clip  := rl.Rectangle{8,0,1,1}
-truck_sprite_sheet_clip      := rl.Rectangle{5,0,2,1}
+sprite_sheet_clip_yellow_car := rl.Rectangle{3,0,1,1}
+sprite_sheet_clip_bulldozer  := rl.Rectangle{4,0,1,1}
+sprite_sheet_clip_purple_car := rl.Rectangle{7,0,1,1}
+sprite_sheet_clip_white_car  := rl.Rectangle{8,0,1,1}
+sprite_sheet_clip_truck      := rl.Rectangle{5,0,2,1}
+sprite_sheet_clip_long_log   := rl.Rectangle{3, 2, 6, 1}
+sprite_sheet_clip_medium_log := rl.Rectangle{4, 3, 4, 1}
+sprite_sheet_clip_small_log  := rl.Rectangle{6, 8, 3, 1}
+sprite_sheet_clip_fly        := rl.Rectangle {2, 6, 1, 1}
+
 
 vehicle_sprite_sheet_clips := [?]rl.Rectangle{
-	truck_sprite_sheet_clip,  truck_sprite_sheet_clip,
-	white_car_sprite_sheet_clip,  white_car_sprite_sheet_clip,  white_car_sprite_sheet_clip,
-	purple_car_sprite_sheet_clip, purple_car_sprite_sheet_clip, purple_car_sprite_sheet_clip,
-	bulldozer_sprite_sheet_clip,  bulldozer_sprite_sheet_clip,  bulldozer_sprite_sheet_clip,
-	yellow_car_sprite_sheet_clip, yellow_car_sprite_sheet_clip, yellow_car_sprite_sheet_clip,
+	sprite_sheet_clip_truck,  sprite_sheet_clip_truck,
+	sprite_sheet_clip_white_car,  sprite_sheet_clip_white_car,  sprite_sheet_clip_white_car,
+	sprite_sheet_clip_purple_car, sprite_sheet_clip_purple_car, sprite_sheet_clip_purple_car,
+	sprite_sheet_clip_bulldozer,  sprite_sheet_clip_bulldozer,  sprite_sheet_clip_bulldozer,
+	sprite_sheet_clip_yellow_car, sprite_sheet_clip_yellow_car, sprite_sheet_clip_yellow_car,
 }
 
 floating_logs := [?]Entity{
@@ -281,14 +288,12 @@ floating_logs := [?]Entity{
 	{ {11, 6, 3, 1}, 1,  0}
 }
 
-long_log_sprite_clip   := rl.Rectangle{3, 2, 6, 1}
-medium_log_sprite_clip := rl.Rectangle{4, 3, 4, 1}
-small_log_sprite_clip  := rl.Rectangle{6, 8, 3, 1}
+
 
 floating_logs_sprite_clips := [?]rl.Rectangle {
-	medium_log_sprite_clip, medium_log_sprite_clip, medium_log_sprite_clip,
-	long_log_sprite_clip,   long_log_sprite_clip,
-	small_log_sprite_clip,  small_log_sprite_clip, small_log_sprite_clip,
+	sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log,
+	sprite_sheet_clip_long_log,   sprite_sheet_clip_long_log,
+	sprite_sheet_clip_small_log,  sprite_sheet_clip_small_log, sprite_sheet_clip_small_log,
 }
 
 
@@ -342,7 +347,6 @@ fly_timer := Timer{
 	duration = 4.0,
 }
 fly_is_active : bool     = false
-fly_sprite_sheet_clip   := rl.Rectangle {2, 6, 1, 1}
 
 
 global_sprite_clip_score_100 := rl.Rectangle {0, 6, 1, 1}
@@ -568,6 +572,10 @@ frogger_start_dying :: proc()
 @(export)
 game_update :: proc()
 {
+	if rl.IsKeyPressed(.SPACE)
+	{
+		fmt.printfln("HI!")
+	}
 	if rl.IsKeyPressed(.ENTER)
 	{
 		gmem.pause = !gmem.pause
@@ -1086,7 +1094,7 @@ game_update :: proc()
 
 
 		{ // draw fly
-			clip := fly_is_active ? fly_sprite_sheet_clip : rl.Rectangle {}
+			clip := fly_is_active ? sprite_sheet_clip_fly : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
 			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, clip, dst_rect, global_sprite_sheet_cell_size, global_cell_size, 0)
@@ -1101,7 +1109,7 @@ game_update :: proc()
 				is_there_a_frog_on_this_lilypad := gmem.is_frog_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
-					rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, happy_frog_sprite_clip_closed_mouth, lp, global_sprite_sheet_cell_size, global_cell_size, 0)
+					rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, sprite_sheet_clip_happy_frog_closed_mouth, lp, global_sprite_sheet_cell_size, global_cell_size, 0)
 				}
 			}
 		}
