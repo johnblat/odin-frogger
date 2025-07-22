@@ -5,11 +5,14 @@ import "core:math"
 import "core:fmt"
 import "core:mem"
 import "core:os/os2"
+import "core:strings"
+
 import rlgrid "./rlgrid"
 
 bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
 bytes_image_data_background         := #load("../assets/frogger_background_colton.png")
 bytes_font_data                     := #load("../assets/joystix monospace.otf")
+bytes_aa_pixel_filter_shader        := #load("./pixel_filter.fs")
 
 global_sprite_sheet_cell_size : f32 = 16
 global_filename_window_save_data := "window_save_data.frog"
@@ -27,7 +30,6 @@ Entity :: struct
 	speed     : f32,
 	warp_boundary_extension : f32,
 }
-
 
 
 Game_Memory :: struct
@@ -56,7 +58,7 @@ Game_Memory :: struct
 	frogger_move_lerp_end_pos   : [2]f32,
 
 	frogger_sprite_rotation: f32,
-	frogger_is_dying_timer :Timer,
+	frogger_is_dying_timer : Animation_Timer,
 
 	is_lily_on_frogger : bool,
 
@@ -86,6 +88,9 @@ Game_Memory :: struct
 	lives: int,
 	counter_cycle: int,
 	counter_level: int,
+
+	// shader
+	shader_pixel_filter: rl.Shader
 }
 
 
@@ -161,21 +166,18 @@ game_free_memory :: proc()
 @(export)
 game_init_platform :: proc()
 {
-	default_window_width : i32 = 640
-	default_window_height : i32 = 640
+	default_window_width : i32 = 224 * 4
+	default_window_height : i32 = 256 * 4
 
 	window_width : i32 = default_window_width
 	window_height : i32 = default_window_height
 	window_pos_x : i32 = 0
 	window_pos_y : i32 = 50
 
-
-
 	window_save_data := Window_Save_Data{}
 
 	bytes_window_save_data, err := os2.read_entire_file_from_path(global_filename_window_save_data, context.temp_allocator)
 
-	mem.copy(&window_save_data, &bytes_window_save_data[0], size_of(window_save_data))
 
 	if err != nil
 	{
@@ -183,6 +185,8 @@ game_init_platform :: proc()
 	}
 	else
 	{
+		mem.copy(&window_save_data, &bytes_window_save_data[0], size_of(window_save_data))
+
 		window_width = window_save_data.width
 		window_height = window_save_data.height
 		window_pos_x = window_save_data.x
@@ -192,14 +196,11 @@ game_init_platform :: proc()
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	rl.InitWindow(default_window_width, default_window_height, "Frogger [For Educational Purposes Only]")
 
-
 	monitor_id := rl.GetCurrentMonitor()
 	monitor_pos := rl.GetMonitorPosition(monitor_id)
 	monitor_width := rl.GetMonitorWidth(monitor_id)
 	monitor_height := rl.GetMonitorHeight(monitor_id)
 
-
-	//
 	rl.SetWindowPosition(window_pos_x, window_pos_y)
 	rl.SetWindowSize(window_width, window_height)
 
@@ -223,11 +224,7 @@ game_init_platform :: proc()
 		rl.SetWindowPosition(reset_window_pos_x, reset_window_pos_y)
 		rl.SetWindowSize(reset_window_width, reset_window_height)
 	}
-
-	// rl.SetWindowSize()
-
 	
-
 	rl.SetTargetFPS(60)
 }
 
@@ -263,7 +260,7 @@ sprite_sheet_clip_truck      := rl.Rectangle{5,0,2,1}
 sprite_sheet_clip_long_log   := rl.Rectangle{3, 2, 6, 1}
 sprite_sheet_clip_medium_log := rl.Rectangle{4, 3, 4, 1}
 sprite_sheet_clip_small_log  := rl.Rectangle{6, 8, 3, 1}
-sprite_sheet_clip_fly        := rl.Rectangle {2, 6, 1, 1}
+sprite_sheet_clip_fly        := rl.Rectangle{2, 6, 1, 1}
 
 
 vehicle_sprite_sheet_clips := [?]rl.Rectangle{
@@ -275,32 +272,33 @@ vehicle_sprite_sheet_clips := [?]rl.Rectangle{
 }
 
 floating_logs := [?]Entity{
-	{ {0,  3,  4, 1}, 2, 0},
-	{ {6,  3,  4, 1}, 2, 0},
-	{ {13, 3, 4, 1}, 2, 0},
+	{ {0,  3, 4, 1}, 1.2,  7},
+	{ {6,  3, 4, 1}, 1.2,  7},
+	{ {12, 3, 4, 1}, 1.2,  7},
+	{ {18, 3, 4, 1}, 1.2,  7},
 
-	{ {0, 5, 6, 1}, 3 , 0},
-	{ {9, 5, 6, 1}, 3 , 0},
+	{ {0, 5, 6, 1}, 2.2 , 0},
+	{ {9, 5, 6, 1}, 2.2 , 0},
 	
 
-	{ {0,  6, 3, 1}, 1 , 0},
-	{ {6,  6, 3, 1}, 1 , 0},
-	{ {11, 6, 3, 1}, 1,  0}
+	{ {0,  6, 3, 1}, 0.8 , 0},
+	{ {6,  6, 3, 1}, 0.8 , 0},
+	{ {11, 6, 3, 1}, 0.8,  0}
 }
 
 
 
 floating_logs_sprite_clips := [?]rl.Rectangle {
-	sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log,
+	sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log,
 	sprite_sheet_clip_long_log,   sprite_sheet_clip_long_log,
 	sprite_sheet_clip_small_log,  sprite_sheet_clip_small_log, sprite_sheet_clip_small_log,
 }
 
 
 turtles := [?]Entity {
-	{ {6,  4, 1, 1}, -2, 4}, { {7,  4, 1, 1}, -2, 4},
-	{ {10, 4, 1, 1}, -2, 4}, { {11, 4, 1, 1}, -2, 4},
-	{ {14, 4, 1, 1}, -2, 4}, { {15, 4, 1, 1}, -2, 4},
+	{ {2,  4, 1, 1}, -2, 2}, { {3,  4, 1, 1}, -2, 2},
+	{ {6, 4, 1, 1}, -2, 2},  { {7, 4, 1, 1}, -2, 2},
+	{ {10, 4, 1, 1}, -2, 2}, { {11, 4, 1, 1}, -2, 2},
 	
 	{ {0, 7, 1, 1}, -2, 0}, { {1, 7, 1, 1}, -2, 0}, { {2,  7, 1, 1}, -2, 0},
 	{ {4, 7, 1, 1}, -2, 0}, { {5, 7, 1, 1}, -2, 0}, { {6,  7, 1, 1}, -2, 0},
@@ -309,7 +307,7 @@ turtles := [?]Entity {
 
 
 diving_turtles := [?]Entity {
-	{ {2, 4, 1, 1},  -2 , 4}, { {3, 4, 1, 1}, -2,  4  },
+	{ {14, 4, 1, 1},  -2 , 2}, { {15, 4, 1, 1}, -2,  2 },
 	{ {12, 7, 1, 1}, -2 , 0}, { {13, 7, 1, 1}, -2, 0 }, { {14, 7, 1, 1}, -2, 0}
 }
 
@@ -364,31 +362,6 @@ map_direction_rotation := [Direction]f32 {
 	.Right = 90
 }
 
-Lily_State :: enum
-{
-	Inactive,
-	Moving,
-	OnFrogger,
-}
-
-Frogger_State :: enum
-{
-	Active,
-	Inactive,
-	Dying,
-}
-
-App_State :: enum
-{
-	MainMenu,
-	Playing,
-}
-
-Playing_State :: enum
-{
-	Normal,
-	LevelEnd,
-}
 
 lily_is_active : bool = false
 lily_sprite_sheet_clip := rl.Rectangle {2, 1, 1, 1}
@@ -415,10 +388,34 @@ lily_logs_to_spawn_on := [?]int{5, 1, 3}
 lily_log_to_spawn_on_index : int = 0 // index into above array
 
 
-frogger_death_anim_fps : f32 = 3
-frogger_death_anim_frames := [?]rl.Rectangle{
-	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}
+// TODO(jblat): Make it so duration is calculated every frame and not on setup
+frogger_is_dying_animation_fps : f32 = 12
+frogger_is_dying_splat_animation_frames := [?]rl.Rectangle{
+	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
+	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
+	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
+	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{3, 4, 1, 1},
 }
+frogger_is_dying_ripple_animation_frames := [?]rl.Rectangle{
+	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
+	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
+	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
+	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
+	{3, 4, 1, 1},
+}
+
+frogger_is_dying_animation_frames : []rl.Rectangle
 
 
 move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
@@ -439,8 +436,8 @@ move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 		}
 		else if should_warp_to_left_side_of_screen 
 		{
-			rectangle_overshoot_amount : f32 = rectangle.x - global_number_grid_cells_axis_x
-			rectangle.x = -rectangle.width + rectangle_overshoot_amount
+			rectangle_overshoot_amount : f32 = rectangle.x - entity.warp_boundary_extension - global_number_grid_cells_axis_x
+			rectangle.x = -rectangle.width - rectangle_overshoot_amount
 		}
 	}
 }
@@ -494,9 +491,6 @@ game_reset_entities :: proc(mem: ^Game_Memory)
 game_init :: proc()
 {
 
-	game_render_target := rl.LoadRenderTexture(i32(global_game_view_pixels_width), i32(global_game_view_pixels_height))
-	rl.SetTextureFilter(game_render_target.texture, rl.TextureFilter.BILINEAR)
-
 	frogger_move_lerp_timer  := Timer {
 		amount = frogger_move_lerp_duration,
 		duration = frogger_move_lerp_duration,
@@ -507,6 +501,14 @@ game_init :: proc()
 
 
 	gmem = new(Game_Memory)
+
+
+	string_fs  := strings.string_from_ptr(&bytes_aa_pixel_filter_shader[0], len(bytes_aa_pixel_filter_shader))
+	cstring_fs := strings.clone_to_cstring(string_fs, context.allocator)
+	gmem.shader_pixel_filter = rl.LoadShaderFromMemory(nil, cstring_fs)
+	// gmem.shader_pixel_filter = rl.LoadShader(nil, "src/pixel_filter.fs")
+	game_render_target := rl.LoadRenderTexture(i32(global_game_view_pixels_width), i32(global_game_view_pixels_height))
+	rl.SetTextureFilter(game_render_target.texture, rl.TextureFilter.BILINEAR)
 
 	gmem.game_render_target = game_render_target
 
@@ -539,12 +541,10 @@ game_init :: proc()
 	gmem.timer_is_active_score_100 = timer_init(2.0, false)
 	gmem.timer_is_active_score_200 = timer_init(2.0, false)
 
-	frogger_is_dying_duration : f32 = animation_get_duration(frogger_death_anim_fps, len(frogger_death_anim_frames)) 
-
-	gmem.frogger_is_dying_timer = Timer{
-		amount   = frogger_is_dying_duration,
-		duration = frogger_is_dying_duration,
-		loop     = false
+	gmem.frogger_is_dying_timer = Animation_Timer{
+		t = 0,
+		loop = false,
+		playing = false,
 	}
 
 	game_reset_entities(gmem)
@@ -564,7 +564,7 @@ frogger_start_dying :: proc()
 {
 	gmem.is_lily_on_frogger = false
 	timer_stop(&gmem.frogger_move_lerp_timer)
-	timer_start(&gmem.frogger_is_dying_timer)
+	animation_timer_start(&gmem.frogger_is_dying_timer)
 }
 
 
@@ -574,7 +574,7 @@ game_update :: proc()
 {
 	if rl.IsKeyPressed(.SPACE)
 	{
-		fmt.printfln("HI!")
+		fmt.printfln("Hey!")
 	}
 	if rl.IsKeyPressed(.ENTER)
 	{
@@ -614,7 +614,7 @@ game_update :: proc()
 	if !gmem.pause 
 	{	
 
-		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !timer_is_playing(gmem.frogger_is_dying_timer) && timer_is_complete(gmem.level_end_timer)
+		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.frogger_is_dying_timer) && timer_is_complete(gmem.level_end_timer)
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -801,10 +801,10 @@ game_update :: proc()
 
 
 		{ // frogger death animation
-			if timer_is_playing(gmem.frogger_is_dying_timer)
+			if animation_timer_is_playing(gmem.frogger_is_dying_timer)
 			{
-				timer_advance(&gmem.frogger_is_dying_timer, frame_time)
-				did_complete := timer_is_complete(gmem.frogger_is_dying_timer)
+				animation_timer_advance(&gmem.frogger_is_dying_timer, len(frogger_is_dying_animation_frames), frogger_is_dying_animation_fps, frame_time)
+				did_complete := animation_timer_is_complete(gmem.frogger_is_dying_timer, len(frogger_is_dying_animation_frames), frogger_is_dying_animation_fps)
 				if did_complete
 				{
 					frogger_reset(frogger_start_pos)
@@ -853,7 +853,7 @@ game_update :: proc()
 		}
 
 
-		should_process_moving_frogger_with_intersecting_entities := !timer_is_playing(gmem.frogger_is_dying_timer) 
+		should_process_moving_frogger_with_intersecting_entities := !animation_timer_is_playing(gmem.frogger_is_dying_timer) 
 		if should_process_moving_frogger_with_intersecting_entities
 		{ 
 			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, gmem.floating_logs, frame_time)
@@ -862,7 +862,7 @@ game_update :: proc()
 		}
 
 
-		should_check_for_win_condtions := !timer_is_playing(gmem.frogger_is_dying_timer) && !timer_is_playing(gmem.level_end_timer)
+		should_check_for_win_condtions := !animation_timer_is_playing(gmem.frogger_is_dying_timer) && !timer_is_playing(gmem.level_end_timer)
 		
 		if should_check_for_win_condtions 
 		{
@@ -942,12 +942,13 @@ game_update :: proc()
 		}
 
 
-		should_check_for_game_over := !timer_is_playing(gmem.frogger_is_dying_timer)  && !gmem.dbg_is_frogger_unkillable
-		if should_check_for_game_over 
+		should_check_for_frogger_is_killed := !animation_timer_is_playing(gmem.frogger_is_dying_timer)  && !gmem.dbg_is_frogger_unkillable
+		if should_check_for_frogger_is_killed 
 		{
 			is_frogger_out_of_bounds := gmem.frogger_pos.x + 0.5 < 0 || gmem.frogger_pos.x - 0.5 >= global_number_grid_cells_axis_x -1 || gmem.frogger_pos.y < 0 || gmem.frogger_pos.y > global_number_grid_cells_axis_y
 			if is_frogger_out_of_bounds 
 			{
+				frogger_is_dying_animation_frames = frogger_is_dying_ripple_animation_frames[:]
 				frogger_start_dying()
 			}
 
@@ -957,6 +958,7 @@ game_update :: proc()
 				is_frogger_hit_by_vehicle := rl.CheckCollisionPointRec(frogger_center_pos, vehicle.rectangle)
 				if is_frogger_hit_by_vehicle
 				{
+					frogger_is_dying_animation_frames = frogger_is_dying_splat_animation_frames[:]
 					frogger_start_dying()
 				}
 			}
@@ -978,6 +980,7 @@ game_update :: proc()
 
 			if did_frogger_collide_with_riverbed
 			{
+				frogger_is_dying_animation_frames = frogger_is_dying_ripple_animation_frames[:]
 				frogger_start_dying()
 			}
 
@@ -1017,6 +1020,7 @@ game_update :: proc()
 
 			if did_frogger_fall_in_river
 			{
+				frogger_is_dying_animation_frames = frogger_is_dying_ripple_animation_frames[:]
 				frogger_start_dying()
 			}
 
@@ -1043,8 +1047,6 @@ game_update :: proc()
 
 	}
 
-
-
 	// rendering
 
 	screen_width := f32(rl.GetScreenWidth())
@@ -1055,6 +1057,7 @@ game_update :: proc()
 	{ // DRAW TO RENDER TEXTURE
 		rl.BeginTextureMode(gmem.game_render_target)
 		defer rl.EndTextureMode()
+
 
 		rl.ClearBackground(rl.LIGHTGRAY) 
 
@@ -1068,19 +1071,19 @@ game_update :: proc()
 			for log, i in gmem.floating_logs 
 			{
 				log_sprite_clip := floating_logs_sprite_clips[i]
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, log_sprite_clip, log.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, log_sprite_clip, global_sprite_sheet_cell_size,  log.rectangle, global_cell_size, 0)
 			}
 
 			for vehicle, i in gmem.vehicles
 			{
 				vehicle_sprite_sheet_clip := vehicle_sprite_sheet_clips[i]
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_clip, vehicle.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_clip,  global_sprite_sheet_cell_size, vehicle.rectangle, global_cell_size, 0)
 			}
 
 			regular_turtles_current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(regular_turtles_anim_timer, regular_turtles_anim_fps, regular_turtle_anim_frames[:])
 			for turtle in gmem.turtles
 			{
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, regular_turtles_current_frame_sprite_sheet_clip_rectangle, turtle.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, regular_turtles_current_frame_sprite_sheet_clip_rectangle,  global_sprite_sheet_cell_size, turtle.rectangle, global_cell_size, 0)
 			}
 
 
@@ -1088,7 +1091,7 @@ game_update :: proc()
 			{
 				anim_timer := diving_turtles_anim_timers[i]
 				diving_turtles_current_frame_sprite_sheet_clilp_rectangle := animation_get_frame_sprite_clip(anim_timer, diving_turtles_anim_fps, diving_turtle_anim_frames[:])
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle, turtle.rectangle, global_sprite_sheet_cell_size, global_cell_size, 0)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle,  global_sprite_sheet_cell_size, turtle.rectangle, global_cell_size, 0)
 			}
 		}
 
@@ -1097,11 +1100,9 @@ game_update :: proc()
 			clip := fly_is_active ? sprite_sheet_clip_fly : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
-			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, clip, dst_rect, global_sprite_sheet_cell_size, global_cell_size, 0)
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_cell_size, 0)
 		}
 
-		
- 
 		
 		{ // draw frogs on lilypads
 			for lp, i in lilypads
@@ -1109,20 +1110,20 @@ game_update :: proc()
 				is_there_a_frog_on_this_lilypad := gmem.is_frog_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
-					rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, sprite_sheet_clip_happy_frog_closed_mouth, lp, global_sprite_sheet_cell_size, global_cell_size, 0)
+					rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, sprite_sheet_clip_happy_frog_closed_mouth, global_sprite_sheet_cell_size,  lp, global_cell_size, 0)
 				}
 			}
 		}
 
 		{ // draw frogger
-			anim_timer    : f32 =    timer_is_playing(gmem.frogger_is_dying_timer) ? gmem.frogger_is_dying_timer.amount     : frogger_anim_timer.amount
-			anim_fps      : f32 =    timer_is_playing(gmem.frogger_is_dying_timer) ? frogger_death_anim_fps       : 12.0 
-			frames :[]rl.Rectangle = timer_is_playing(gmem.frogger_is_dying_timer) ? frogger_death_anim_frames[:] : frogger_anim_frames[:]
-			rotation : f32         = timer_is_playing(gmem.frogger_is_dying_timer) ? 0                            : gmem.frogger_sprite_rotation
+			anim_timer    : f32 =    animation_timer_is_playing(gmem.frogger_is_dying_timer) ? gmem.frogger_is_dying_timer.t     : frogger_anim_timer.amount
+			anim_fps      : f32 =    animation_timer_is_playing(gmem.frogger_is_dying_timer) ? frogger_is_dying_animation_fps       : 12.0 
+			frames :[]rl.Rectangle = animation_timer_is_playing(gmem.frogger_is_dying_timer) ? frogger_is_dying_animation_frames[:] : frogger_anim_frames[:]
+			rotation : f32         = animation_timer_is_playing(gmem.frogger_is_dying_timer) ? 0                            : gmem.frogger_sprite_rotation
 			
 			current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(anim_timer, anim_fps, frames)
 			rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, rectangle, global_sprite_sheet_cell_size, global_cell_size, rotation)
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, global_sprite_sheet_cell_size, rectangle,  global_cell_size, rotation)
 		}
 
 		
@@ -1147,7 +1148,7 @@ game_update :: proc()
 				{
 					dst_rectangle.x += 0.15
 				}
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, dst_rectangle, global_sprite_sheet_cell_size, global_cell_size, rotation)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, global_sprite_sheet_cell_size,  dst_rectangle, global_cell_size, rotation)
 			}
 			else 
 			{
@@ -1160,20 +1161,20 @@ game_update :: proc()
 					lily_height
 				}
 				rotation := map_direction_rotation[lily_direction]
-				rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, lily_world_rectangle, global_sprite_sheet_cell_size, global_cell_size, rotation)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip,  global_sprite_sheet_cell_size, lily_world_rectangle, global_cell_size, rotation)
 			}
 		}
 
 		if timer_is_playing(gmem.timer_is_active_score_100)
 		{
 			dst_rect := rl.Rectangle {gmem.pos_score_100.x, gmem.pos_score_100.y, 1, 1}
-			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_100, dst_rect, global_sprite_sheet_cell_size, global_cell_size, 0)
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_100,  global_sprite_sheet_cell_size, dst_rect, global_cell_size, 0)
 		}
 
 		if timer_is_playing(gmem.timer_is_active_score_200)
 		{
 			dst_rect := rl.Rectangle {gmem.pos_score_200.x, gmem.pos_score_200.y, 1, 1}
-			rlgrid.draw_sprite_sheet_rectangle_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_200, dst_rect, global_sprite_sheet_cell_size, global_cell_size, 0)			
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_200,  global_sprite_sheet_cell_size, dst_rect, global_cell_size, 0)			
 		}
 	
 		if gmem.dbg_show_grid 
@@ -1208,10 +1209,7 @@ game_update :: proc()
 		{ // heads up display
 			heads_up_display_font_size : f32 = 0.7
 
-			one_up_pos := [2]f32{
-				4,
-				0,
-			}
+			one_up_pos := [2]f32{4,0}
 
 			rlgrid.draw_text_on_grid_right_justified(gmem.font, "1-UP", one_up_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_cell_size))
 
@@ -1231,21 +1229,30 @@ game_update :: proc()
 		}	
 	}
 
+
 	{ // DRAW TO WINDOW
 		rl.BeginDrawing()
-		defer rl.EndDrawing()
-
+		rl.BeginShaderMode(gmem.shader_pixel_filter)
+		rl.BeginBlendMode(.ALPHA_PREMULTIPLY)
 		rl.ClearBackground(rl.BLACK)
 
 		src := rl.Rectangle{ 0, 0, f32(gmem.game_render_target.texture.width), f32(-gmem.game_render_target.texture.height) }
 		
 		scale := min(screen_width/global_game_view_pixels_width, screen_height/global_game_view_pixels_height)
 
+		zoom_uniform := rl.GetShaderLocation(gmem.shader_pixel_filter, "zoom")
+		rl.SetShaderValue(gmem.shader_pixel_filter, rl.ShaderLocationIndex(zoom_uniform), &scale, .FLOAT)
+
 		window_scaled_width  := global_game_view_pixels_width * scale
 		window_scaled_height := global_game_view_pixels_height * scale
 
 		dst := rl.Rectangle{(screen_width - window_scaled_width)/2, (screen_height - window_scaled_height)/2, window_scaled_width, window_scaled_height}
 		rl.DrawTexturePro(gmem.game_render_target.texture, src, dst, [2]f32{0,0}, 0, rl.WHITE)
+
+		rl.EndShaderMode()
+		rl.EndBlendMode()
+		rl.EndDrawing()
+
 	}
 
 	free_all(context.temp_allocator)

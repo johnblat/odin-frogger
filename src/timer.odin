@@ -70,3 +70,47 @@ timer_init :: proc(duration: f32, loop: bool) -> Timer
 
 	return t
 }
+
+
+Animation_Timer :: struct {
+	t: f32,
+	loop: bool,
+	playing: bool,
+}
+
+animation_timer_is_complete :: proc(animation_timer: Animation_Timer, number_of_frames: int, fps: f32) -> bool
+{
+	duration := animation_get_duration(fps, number_of_frames)
+	is_complete := (animation_timer.t >= duration && !animation_timer.loop ) || !animation_timer.playing
+	return is_complete
+}
+
+animation_timer_is_playing :: proc(animation_timer: Animation_Timer) -> bool
+{
+	return animation_timer.playing
+}
+
+animation_timer_advance :: proc(animation_timer: ^Animation_Timer, number_of_frames: int, fps: f32, dt: f32) -> bool
+{
+	if !animation_timer.playing
+	{
+		return false
+	}
+	duration := animation_get_duration(fps, number_of_frames)
+	animation_timer.t += dt
+	if animation_timer.t > duration && animation_timer.loop
+	{
+		animation_timer.t = 0
+	}
+	else if animation_timer.t > duration
+	{
+		animation_timer.playing = false
+	}
+	return animation_timer.playing
+}
+
+animation_timer_start :: proc(animation_timer: ^Animation_Timer)
+{
+	animation_timer.t = 0
+	animation_timer.playing = true
+}
