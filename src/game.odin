@@ -9,13 +9,12 @@ import "core:strings"
 
 import rlgrid "./rlgrid"
 
-bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
 // bytes_image_data_background         := #load("../assets/frogger_background_colton.png")
 bytes_image_data_background         := #load("../assets/frogger_background_modified.png")
 bytes_font_data                     := #load("../assets/joystix monospace.otf")
 bytes_aa_pixel_filter_shader        := #load("./pixel_filter.fs")
 
-global_sprite_sheet_cell_size : f32 = 16
+
 global_filename_window_save_data := "window_save_data.frog"
 
 Window_Save_Data :: struct
@@ -25,11 +24,13 @@ Window_Save_Data :: struct
 
 
 
+
 Entity :: struct
 {
 	rectangle : rl.Rectangle,
 	speed     : f32,
 	warp_boundary_extension : f32,
+	sprite_sheet_clip: Sprite_Sheet_Clip,
 }
 
 
@@ -205,9 +206,9 @@ game_init_platform :: proc()
 	rl.SetWindowPosition(window_pos_x, window_pos_y)
 	rl.SetWindowSize(window_width, window_height)
 
-	after_set_pos_monitor_id := rl.GetCurrentMonitor()
-	after_set_pos_monitor_pos := rl.GetMonitorPosition(after_set_pos_monitor_id)
-	after_set_pos_monitor_width := rl.GetMonitorWidth(after_set_pos_monitor_id)
+	after_set_pos_monitor_id     := rl.GetCurrentMonitor()
+	after_set_pos_monitor_pos    := rl.GetMonitorPosition(after_set_pos_monitor_id)
+	after_set_pos_monitor_width  := rl.GetMonitorWidth(after_set_pos_monitor_id)
 	after_set_pos_monitor_height := rl.GetMonitorHeight(after_set_pos_monitor_id)
 
 	is_window_out_of_monitor_bounds := f32(window_pos_x) < after_set_pos_monitor_pos.x ||
@@ -230,25 +231,25 @@ game_init_platform :: proc()
 }
 
 
-sprite_sheet_clip_happy_frog_closed_mouth := rl.Rectangle{3, 6, 1, 1}
+
 
 is_frogs_on_lilypad := [5]bool{true, true, true, true, false}
 
 vehicles := [?]Entity {
-	{rectangle = {1,  9,  2, 1}, speed = -1.5 },
-	{rectangle = {6.5,  9,  2, 1}, speed = -1.5 },
-	{rectangle = {1,  10, 1, 1}, speed =  2 },
-	{rectangle = {5,  10, 1, 1}, speed =  2 },
-	{rectangle = {9,  10, 1, 1}, speed =  2 },
-	{rectangle = {10, 11, 1, 1}, speed = -2 },
-	{rectangle = {6,  11, 1, 1}, speed = -2 },
-	{rectangle = {2,  11, 1, 1}, speed = -2 },
-	{rectangle = {5,  12, 1, 1}, speed =  2 },
-	{rectangle = {9,  12, 1, 1}, speed =  2 },
-	{rectangle = {13, 12, 1, 1}, speed =  2 },
-	{rectangle = {10, 13, 1, 1}, speed = -1 },
-	{rectangle = {6,  13, 1, 1}, speed = -1 },
-	{rectangle = {2,  13, 1, 1}, speed = -1 }
+	{rectangle = {1,    9, 2, 1}, speed = -1.5   },
+	{rectangle = {6.5,  9, 2, 1}, speed = -1.5   },
+	{rectangle = {1,   10, 1, 1}, speed =  2     },
+	{rectangle = {5,   10, 1, 1}, speed =  2     },
+	{rectangle = {9,   10, 1, 1}, speed =  2     },
+	{rectangle = {10,  11, 1, 1}, speed = -2     },
+	{rectangle = {6,   11, 1, 1}, speed = -2     },
+	{rectangle = {2,   11, 1, 1}, speed = -2     },
+	{rectangle = {5,   12, 1, 1}, speed =  2     },
+	{rectangle = {9,   12, 1, 1}, speed =  2     },
+	{rectangle = {13,  12, 1, 1}, speed =  2     },
+	{rectangle = {10,  13, 1, 1}, speed = -1     },
+	{rectangle = {6,   13, 1, 1}, speed = -1     },
+	{rectangle = {2,   13, 1, 1}, speed = -1     }
 
 }
 
