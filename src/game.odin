@@ -235,8 +235,8 @@ sprite_sheet_clip_happy_frog_closed_mouth := rl.Rectangle{3, 6, 1, 1}
 is_frogs_on_lilypad := [5]bool{true, true, true, true, false}
 
 vehicles := [?]Entity {
-	{rectangle = {1,  9,  2, 1}, speed = -2 },
-	{rectangle = {6,  9,  2, 1}, speed = -2 },
+	{rectangle = {1,  9,  2, 1}, speed = -1.5 },
+	{rectangle = {6.5,  9,  2, 1}, speed = -1.5 },
 	{rectangle = {1,  10, 1, 1}, speed =  2 },
 	{rectangle = {5,  10, 1, 1}, speed =  2 },
 	{rectangle = {9,  10, 1, 1}, speed =  2 },
@@ -278,38 +278,40 @@ floating_logs := [?]Entity{
 	{ {12, 3, 4, 1}, 1.2,  7},
 	{ {18, 3, 4, 1}, 1.2,  7},
 
-	{ {0, 5, 6, 1}, 2.2 , 0},
-	{ {9, 5, 6, 1}, 2.2 , 0},
-	
+	{ {0, 5, 6, 1}, 2.2 , 4},	
+	{ {8, 5, 6, 1}, 2.2 , 4},
+	{ {16, 5, 6, 1}, 2.2, 4},
 
-	{ {0,  6, 3, 1}, 0.8 , 0},
-	{ {6,  6, 3, 1}, 0.8 , 0},
-	{ {11, 6, 3, 1}, 0.8,  0}
+	{ {0,  6, 3, 1}, 0.8 , 4},
+	{ {5,  6, 3, 1}, 0.8 , 4},
+	{ {10, 6, 3, 1}, 0.8,  4},
+	{ {15, 6, 3, 1}, 0.8,  4},
 }
 
 
 
 floating_logs_sprite_clips := [?]rl.Rectangle {
 	sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log,
-	sprite_sheet_clip_long_log,   sprite_sheet_clip_long_log,
-	sprite_sheet_clip_small_log,  sprite_sheet_clip_small_log, sprite_sheet_clip_small_log,
+	sprite_sheet_clip_long_log,   sprite_sheet_clip_long_log, sprite_sheet_clip_long_log,
+	sprite_sheet_clip_small_log,  sprite_sheet_clip_small_log, sprite_sheet_clip_small_log, sprite_sheet_clip_small_log
 }
 
 
 turtles := [?]Entity {
-	{ {2,  4, 1, 1}, -2, 2}, { {3,  4, 1, 1}, -2, 2},
-	{ {6, 4, 1, 1}, -2, 2},  { {7, 4, 1, 1}, -2, 2},
-	{ {10, 4, 1, 1}, -2, 2}, { {11, 4, 1, 1}, -2, 2},
+	{ {2,  4, 1, 1}, -2, 2.5}, { {3,  4, 1, 1}, -2, 2.5},
+	{ {6, 4, 1, 1}, -2,  2.5},  { {7, 4, 1, 1}, -2, 2.5},
+	{ {10, 4, 1, 1}, -2, 2.5}, { {11, 4, 1, 1}, -2, 2.5},
 	
-	{ {0, 7, 1, 1}, -2, 0}, { {1, 7, 1, 1}, -2, 0}, { {2,  7, 1, 1}, -2, 0},
-	{ {4, 7, 1, 1}, -2, 0}, { {5, 7, 1, 1}, -2, 0}, { {6,  7, 1, 1}, -2, 0},
-	{ {8, 7, 1, 1}, -2, 0}, { {9, 7, 1, 1}, -2, 0}, { {10, 7, 1, 1}, -2, 0},
+	{ {0, 7, 1, 1}, -2, 1}, { {1, 7, 1, 1}, -2, 1}, { {2,  7, 1, 1}, -2, 1},
+	{ {4, 7, 1, 1}, -2, 1}, { {5, 7, 1, 1}, -2, 1}, { {6,  7, 1, 1}, -2, 1},
+	{ {8, 7, 1, 1}, -2, 1}, { {9, 7, 1, 1}, -2, 1}, { {10, 7, 1, 1}, -2, 1},
 }
 
 
 diving_turtles := [?]Entity {
-	{ {14, 4, 1, 1},  -2 , 2}, { {15, 4, 1, 1}, -2,  2 },
-	{ {12, 7, 1, 1}, -2 , 0}, { {13, 7, 1, 1}, -2, 0 }, { {14, 7, 1, 1}, -2, 0}
+	{ {15.5, 4, 1, 1},  -2 , 2.5}, { {16.5, 4, 1, 1}, -2,  2.5},
+
+	{ {12, 7, 1, 1}, -2 ,  1}, { {13, 7, 1, 1}, -2,  1}, { {14, 7, 1, 1}, -2, 1}
 }
 
 regular_turtles_anim_fps : f32 = 3
@@ -339,7 +341,7 @@ global_game_view_pixels_height  : f32 : global_cell_size * global_number_grid_ce
 
 
 
-fly_lilypad_indices := [?]int{3, 1, 3, 1, 0, 2, 4, 3, 1, 0}
+fly_lilypad_indices := [?]int{3, 1, 3, 1, 0, 2, 4, 3, 1, 0, 4, 2, 4, 3, 0, 0, 2}
 fly_lilypad_index : int  = 0 // index into array above, not the lilypad
 fly_timer := Timer{
 	amount = 0,
@@ -432,8 +434,8 @@ move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 
 		if should_warp_to_right_side_of_screen
 		{
-			rectangle_overshoot_amount : f32 = rectangle.x + rectangle.width + entity.warp_boundary_extension
-			rectangle.x = global_number_grid_cells_axis_x + rectangle.width + rectangle_overshoot_amount
+			rectangle_overshoot_amount : f32 = -rectangle.x - entity.warp_boundary_extension
+			rectangle.x = global_number_grid_cells_axis_x + rectangle.width - rectangle_overshoot_amount
 		}
 		else if should_warp_to_left_side_of_screen 
 		{
