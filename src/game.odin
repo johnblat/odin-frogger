@@ -10,7 +10,8 @@ import "core:strings"
 import rlgrid "./rlgrid"
 
 bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
-bytes_image_data_background         := #load("../assets/frogger_background_colton.png")
+// bytes_image_data_background         := #load("../assets/frogger_background_colton.png")
+bytes_image_data_background         := #load("../assets/frogger_background_modified.png")
 bytes_font_data                     := #load("../assets/joystix monospace.otf")
 bytes_aa_pixel_filter_shader        := #load("./pixel_filter.fs")
 
@@ -330,7 +331,7 @@ frogger_anim_timer := Timer {
 
 frogger_move_lerp_duration : f32 = 0.1
 
-global_cell_size                : f32 : 64
+global_cell_size                : f32 : 80
 global_number_grid_cells_axis_x : f32 : 14
 global_number_grid_cells_axis_y : f32 : 16
 global_game_view_pixels_width   : f32 : global_cell_size * global_number_grid_cells_axis_x

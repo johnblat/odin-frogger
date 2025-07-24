@@ -77,8 +77,8 @@ draw_grid_texture_clip_on_grid :: proc(tex: rl.Texture2D, src_rectangle: rl.Rect
 	rotation_origin := [2]f32{dst_rect.width / 2, dst_rect.height / 2}
 	dst_rect.x += rotation_origin.x
 	dst_rect.y += rotation_origin.y
-	dst_rect.x = math.floor(dst_rect.x)
-	dst_rect.y = math.floor(dst_rect.y)
+	// dst_rect.x = math.floor(dst_rect.x)
+	// dst_rect.y = math.floor(dst_rect.y)
 
 	// rl.DrawCircleV(rotation_origin, 5, rl.RED)
 	rl.DrawTexturePro(tex, src_rect, dst_rect, rotation_origin, rotation, rl.WHITE)
