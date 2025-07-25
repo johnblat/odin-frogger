@@ -180,7 +180,6 @@ game_init_platform :: proc()
 
 	bytes_window_save_data, err := os2.read_entire_file_from_path(global_filename_window_save_data, context.temp_allocator)
 
-
 	if err != nil
 	{
 		fmt.printfln("Error reading from window save data file: %v", err)
@@ -196,15 +195,8 @@ game_init_platform :: proc()
 	}
 
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
-	rl.InitWindow(default_window_width, default_window_height, "Frogger [For Educational Purposes Only]")
-
-	monitor_id := rl.GetCurrentMonitor()
-	monitor_pos := rl.GetMonitorPosition(monitor_id)
-	monitor_width := rl.GetMonitorWidth(monitor_id)
-	monitor_height := rl.GetMonitorHeight(monitor_id)
-
+	rl.InitWindow(window_width, window_height, "Frogger [For Educational Purposes Only]")
 	rl.SetWindowPosition(window_pos_x, window_pos_y)
-	rl.SetWindowSize(window_width, window_height)
 
 	after_set_pos_monitor_id     := rl.GetCurrentMonitor()
 	after_set_pos_monitor_pos    := rl.GetMonitorPosition(after_set_pos_monitor_id)
