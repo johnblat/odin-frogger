@@ -1,12 +1,14 @@
 package game
 
 import rl "vendor:raylib"
-
+import "./rlgrid"
 
 global_sprite_sheet_cell_size : f32 = 16
 bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
+// bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_colton.png")
 
-Sprite_Sheet_Clip :: enum {
+
+Sprite_Sheet_Clip ::  enum {
 	Truck,
 	Racecar,
 	Purple_Car,
@@ -91,4 +93,10 @@ global_sprite_sheet_clips := [Sprite_Sheet_Clip]rl.Rectangle {
 	.Frogger_Dying_Ripple_Frame_3 = {3, 3, 1, 1},
 	.Skull_And_Crossbones         = {0, 3, 1, 1},
 	.Empty                        = {0, 0, 0, 0},
+}
+
+draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Sheet_Clip, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32 )
+{
+	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
+	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, dst_grid_cell_size, rotation)
 }

@@ -20,9 +20,3 @@ void main()
 {
     finalColor = fragColor * texture(texture0, uv_aa_smoothstep(fragTexCoord, ivec2(textureSize(texture0, 0)), 1.5));
 }
-
-// void main()
-// {
-//     vec4 tex_color = texture(texture0, uv_aa_smoothstep(fragTexCoord, ivec2(textureSize(texture0, 0)), 1.5));
-//     finalColor = mix(tex_color, vec4(1.0, 0.0, 1.0, 1.0), 0.5); // 50% hot pink overlay
-// }

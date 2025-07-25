@@ -24,4 +24,5 @@ TODO
 				- The toggle variable is called `dbg_is_frogger_unkillable`
 					- CTRL + F for "dbg_is_frogger_unkillable" to see where it is created and how it is used currently
 					- Note: `dbg_` used to prefix variables that are really only used for debugging purposes
-			
+
+					

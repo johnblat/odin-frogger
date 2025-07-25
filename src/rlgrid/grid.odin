@@ -87,6 +87,7 @@ draw_grid_texture_clip_on_grid :: proc(tex: rl.Texture2D, src_rectangle: rl.Rect
 
 }
 
+
 draw_text_on_grid :: proc(font: rl.Font, text: cstring, pos: [2]f32, size: f32, spacing: f32, tint: rl.Color, grid_cell_size: f32)
 {
 	dst_pos     := [2]f32{pos.x * grid_cell_size, pos.y * grid_cell_size}

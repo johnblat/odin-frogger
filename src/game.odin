@@ -23,7 +23,10 @@ Window_Save_Data :: struct
 }
 
 
-
+Sprite_Data :: union {
+	Sprite_Sheet_Clip,
+	[]rl.Rectangle,
+}
 
 Entity :: struct
 {
@@ -106,8 +109,6 @@ lilypads := [5]rl.Rectangle{
 	{9.5,  2, 1, 1},
 	{12.5, 2, 1, 1},
 }
-
-
 
 
 @(export)
@@ -228,33 +229,33 @@ game_init_platform :: proc()
 is_frogs_on_lilypad := [5]bool{true, true, true, true, false}
 
 vehicles := [?]Entity {
-	{rectangle = {1,    9, 2, 1}, speed = -1.5   },
-	{rectangle = {6.5,  9, 2, 1}, speed = -1.5   },
-	{rectangle = {1,   10, 1, 1}, speed =  2     },
-	{rectangle = {5,   10, 1, 1}, speed =  2     },
-	{rectangle = {9,   10, 1, 1}, speed =  2     },
-	{rectangle = {10,  11, 1, 1}, speed = -2     },
-	{rectangle = {6,   11, 1, 1}, speed = -2     },
-	{rectangle = {2,   11, 1, 1}, speed = -2     },
-	{rectangle = {5,   12, 1, 1}, speed =  2     },
-	{rectangle = {9,   12, 1, 1}, speed =  2     },
-	{rectangle = {13,  12, 1, 1}, speed =  2     },
-	{rectangle = {10,  13, 1, 1}, speed = -1     },
-	{rectangle = {6,   13, 1, 1}, speed = -1     },
-	{rectangle = {2,   13, 1, 1}, speed = -1     }
+	{rectangle = {1,    9, 2, 1}, speed = -1.5,  sprite_sheet_clip = .Truck      },
+	{rectangle = {6.5,  9, 2, 1}, speed = -1.5,  sprite_sheet_clip = .Truck      },
+	{rectangle = {1,   10, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Racecar    },
+	{rectangle = {5,   10, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Racecar    },
+	{rectangle = {9,   10, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Racecar    },
+	{rectangle = {10,  11, 1, 1}, speed = -2  ,  sprite_sheet_clip = .Purple_Car },
+	{rectangle = {6,   11, 1, 1}, speed = -2  ,  sprite_sheet_clip = .Purple_Car },
+	{rectangle = {2,   11, 1, 1}, speed = -2  ,  sprite_sheet_clip = .Purple_Car },
+	{rectangle = {5,   12, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Bulldozer  },
+	{rectangle = {9,   12, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Bulldozer  },
+	{rectangle = {13,  12, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Bulldozer  },
+	{rectangle = {10,  13, 1, 1}, speed = -1  ,  sprite_sheet_clip = .Taxi       },
+	{rectangle = {6,   13, 1, 1}, speed = -1  ,  sprite_sheet_clip = .Taxi       },
+	{rectangle = {2,   13, 1, 1}, speed = -1  ,  sprite_sheet_clip = .Taxi       }
 
 }
 
 
-sprite_sheet_clip_yellow_car := rl.Rectangle{3,0,1,1}
-sprite_sheet_clip_bulldozer  := rl.Rectangle{4,0,1,1}
-sprite_sheet_clip_purple_car := rl.Rectangle{7,0,1,1}
-sprite_sheet_clip_white_car  := rl.Rectangle{8,0,1,1}
-sprite_sheet_clip_truck      := rl.Rectangle{5,0,2,1}
-sprite_sheet_clip_long_log   := rl.Rectangle{3, 2, 6, 1}
-sprite_sheet_clip_medium_log := rl.Rectangle{4, 3, 4, 1}
-sprite_sheet_clip_small_log  := rl.Rectangle{6, 8, 3, 1}
-sprite_sheet_clip_fly        := rl.Rectangle{2, 6, 1, 1}
+// sprite_sheet_clip_yellow_car := rl.Rectangle{3,0,1,1}
+// sprite_sheet_clip_bulldozer  := rl.Rectangle{4,0,1,1}
+// sprite_sheet_clip_purple_car := rl.Rectangle{7,0,1,1}
+// sprite_sheet_clip_white_car  := rl.Rectangle{8,0,1,1}
+// sprite_sheet_clip_truck      := rl.Rectangle{5,0,2,1}
+// sprite_sheet_clip_long_log   := rl.Rectangle{3, 2, 6, 1}
+// sprite_sheet_clip_medium_log := rl.Rectangle{4, 3, 4, 1}
+// sprite_sheet_clip_small_log  := rl.Rectangle{6, 8, 3, 1}
+// sprite_sheet_clip_fly        := rl.Rectangle{2, 6, 1, 1}
 
 
 vehicle_sprite_sheet_clips := [?]rl.Rectangle{
@@ -292,7 +293,7 @@ floating_logs_sprite_clips := [?]rl.Rectangle {
 
 turtles := [?]Entity {
 	{ {2,  4, 1, 1}, -2, 2.5}, { {3,  4, 1, 1}, -2, 2.5},
-	{ {6, 4, 1, 1}, -2,  2.5},  { {7, 4, 1, 1}, -2, 2.5},
+	{ {6, 4, 1, 1},  -2, 2.5}, { {7, 4, 1, 1},  -2, 2.5},
 	{ {10, 4, 1, 1}, -2, 2.5}, { {11, 4, 1, 1}, -2, 2.5},
 	
 	{ {0, 7, 1, 1}, -2, 1}, { {1, 7, 1, 1}, -2, 1}, { {2,  7, 1, 1}, -2, 1},
@@ -326,7 +327,7 @@ frogger_anim_timer := Timer {
 
 frogger_move_lerp_duration : f32 = 0.1
 
-global_cell_size                : f32 : 80
+global_cell_size                : f32 : 64
 global_number_grid_cells_axis_x : f32 : 14
 global_number_grid_cells_axis_y : f32 : 16
 global_game_view_pixels_width   : f32 : global_cell_size * global_number_grid_cells_axis_x
@@ -500,9 +501,8 @@ game_init :: proc()
 
 
 	string_fs  := strings.string_from_ptr(&bytes_aa_pixel_filter_shader[0], len(bytes_aa_pixel_filter_shader))
-	cstring_fs := strings.clone_to_cstring(string_fs, context.allocator)
+	cstring_fs := strings.clone_to_cstring(string_fs, context.temp_allocator)
 	gmem.shader_pixel_filter = rl.LoadShaderFromMemory(nil, cstring_fs)
-	// gmem.shader_pixel_filter = rl.LoadShader(nil, "src/pixel_filter.fs")
 	game_render_target := rl.LoadRenderTexture(i32(global_game_view_pixels_width), i32(global_game_view_pixels_height))
 	rl.SetTextureFilter(game_render_target.texture, rl.TextureFilter.BILINEAR)
 
@@ -1106,7 +1106,7 @@ game_update :: proc()
 				is_there_a_frog_on_this_lilypad := gmem.is_frog_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
-					rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, sprite_sheet_clip_happy_frog_closed_mouth, global_sprite_sheet_cell_size,  lp, global_cell_size, 0)
+					rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_cell_size, 0)
 				}
 			}
 		}
@@ -1229,15 +1229,12 @@ game_update :: proc()
 	{ // DRAW TO WINDOW
 		rl.BeginDrawing()
 		rl.BeginShaderMode(gmem.shader_pixel_filter)
-		rl.BeginBlendMode(.ALPHA_PREMULTIPLY)
+		// rl.BeginBlendMode(.ALPHA_PREMULTIPLY)
 		rl.ClearBackground(rl.BLACK)
 
 		src := rl.Rectangle{ 0, 0, f32(gmem.game_render_target.texture.width), f32(-gmem.game_render_target.texture.height) }
 		
 		scale := min(screen_width/global_game_view_pixels_width, screen_height/global_game_view_pixels_height)
-
-		zoom_uniform := rl.GetShaderLocation(gmem.shader_pixel_filter, "zoom")
-		rl.SetShaderValue(gmem.shader_pixel_filter, rl.ShaderLocationIndex(zoom_uniform), &scale, .FLOAT)
 
 		window_scaled_width  := global_game_view_pixels_width * scale
 		window_scaled_height := global_game_view_pixels_height * scale
@@ -1246,7 +1243,7 @@ game_update :: proc()
 		rl.DrawTexturePro(gmem.game_render_target.texture, src, dst, [2]f32{0,0}, 0, rl.WHITE)
 
 		rl.EndShaderMode()
-		rl.EndBlendMode()
+		// rl.EndBlendMode()
 		rl.EndDrawing()
 
 	}
