@@ -25,15 +25,19 @@ Window_Save_Data :: struct
 
 Sprite_Data :: union {
 	Sprite_Sheet_Clip,
-	[]rl.Rectangle,
+	Regular_Turtle_Animation,
+	Diving_Turtle_Animation,
 }
+
+Regular_Turtle_Animation :: struct {}
+Diving_Turtle_Animation :: struct {}
 
 Entity :: struct
 {
 	rectangle : rl.Rectangle,
 	speed     : f32,
 	warp_boundary_extension : f32,
-	sprite_sheet_clip: Sprite_Sheet_Clip,
+	sprite_data: Sprite_Data,
 }
 
 
@@ -229,83 +233,64 @@ game_init_platform :: proc()
 is_frogs_on_lilypad := [5]bool{true, true, true, true, false}
 
 vehicles := [?]Entity {
-	{rectangle = {1,    9, 2, 1}, speed = -1.5,  sprite_sheet_clip = .Truck      },
-	{rectangle = {6.5,  9, 2, 1}, speed = -1.5,  sprite_sheet_clip = .Truck      },
-	{rectangle = {1,   10, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Racecar    },
-	{rectangle = {5,   10, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Racecar    },
-	{rectangle = {9,   10, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Racecar    },
-	{rectangle = {10,  11, 1, 1}, speed = -2  ,  sprite_sheet_clip = .Purple_Car },
-	{rectangle = {6,   11, 1, 1}, speed = -2  ,  sprite_sheet_clip = .Purple_Car },
-	{rectangle = {2,   11, 1, 1}, speed = -2  ,  sprite_sheet_clip = .Purple_Car },
-	{rectangle = {5,   12, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Bulldozer  },
-	{rectangle = {9,   12, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Bulldozer  },
-	{rectangle = {13,  12, 1, 1}, speed =  2  ,  sprite_sheet_clip = .Bulldozer  },
-	{rectangle = {10,  13, 1, 1}, speed = -1  ,  sprite_sheet_clip = .Taxi       },
-	{rectangle = {6,   13, 1, 1}, speed = -1  ,  sprite_sheet_clip = .Taxi       },
-	{rectangle = {2,   13, 1, 1}, speed = -1  ,  sprite_sheet_clip = .Taxi       }
+	{rectangle = {1,    9, 2, 1}, speed = -1.5,  sprite_data = .Truck      },
+	{rectangle = {6.5,  9, 2, 1}, speed = -1.5,  sprite_data = .Truck      },
+	{rectangle = {1,   10, 1, 1}, speed =  2  ,  sprite_data = .Racecar    },
+	{rectangle = {5,   10, 1, 1}, speed =  2  ,  sprite_data = .Racecar    },
+	{rectangle = {9,   10, 1, 1}, speed =  2  ,  sprite_data = .Racecar    },
+	{rectangle = {10,  11, 1, 1}, speed = -2  ,  sprite_data = .Purple_Car },
+	{rectangle = {6,   11, 1, 1}, speed = -2  ,  sprite_data = .Purple_Car },
+	{rectangle = {2,   11, 1, 1}, speed = -2  ,  sprite_data = .Purple_Car },
+	{rectangle = {5,   12, 1, 1}, speed =  2  ,  sprite_data = .Bulldozer  },
+	{rectangle = {9,   12, 1, 1}, speed =  2  ,  sprite_data = .Bulldozer  },
+	{rectangle = {13,  12, 1, 1}, speed =  2  ,  sprite_data = .Bulldozer  },
+	{rectangle = {10,  13, 1, 1}, speed = -1  ,  sprite_data = .Taxi       },
+	{rectangle = {6,   13, 1, 1}, speed = -1  ,  sprite_data = .Taxi       },
+	{rectangle = {2,   13, 1, 1}, speed = -1  ,  sprite_data = .Taxi       }
 
 }
 
-
-// sprite_sheet_clip_yellow_car := rl.Rectangle{3,0,1,1}
-// sprite_sheet_clip_bulldozer  := rl.Rectangle{4,0,1,1}
-// sprite_sheet_clip_purple_car := rl.Rectangle{7,0,1,1}
-// sprite_sheet_clip_white_car  := rl.Rectangle{8,0,1,1}
-// sprite_sheet_clip_truck      := rl.Rectangle{5,0,2,1}
-// sprite_sheet_clip_long_log   := rl.Rectangle{3, 2, 6, 1}
-// sprite_sheet_clip_medium_log := rl.Rectangle{4, 3, 4, 1}
-// sprite_sheet_clip_small_log  := rl.Rectangle{6, 8, 3, 1}
-// sprite_sheet_clip_fly        := rl.Rectangle{2, 6, 1, 1}
-
-
-vehicle_sprite_sheet_clips := [?]rl.Rectangle{
-	sprite_sheet_clip_truck,  sprite_sheet_clip_truck,
-	sprite_sheet_clip_white_car,  sprite_sheet_clip_white_car,  sprite_sheet_clip_white_car,
-	sprite_sheet_clip_purple_car, sprite_sheet_clip_purple_car, sprite_sheet_clip_purple_car,
-	sprite_sheet_clip_bulldozer,  sprite_sheet_clip_bulldozer,  sprite_sheet_clip_bulldozer,
-	sprite_sheet_clip_yellow_car, sprite_sheet_clip_yellow_car, sprite_sheet_clip_yellow_car,
-}
 
 floating_logs := [?]Entity{
-	{ {0,  3, 4, 1}, 1.2,  7},
-	{ {6,  3, 4, 1}, 1.2,  7},
-	{ {12, 3, 4, 1}, 1.2,  7},
-	{ {18, 3, 4, 1}, 1.2,  7},
-
-	{ {0, 5, 6, 1}, 2.2 , 4},	
-	{ {8, 5, 6, 1}, 2.2 , 4},
-	{ {16, 5, 6, 1}, 2.2, 4},
-
-	{ {0,  6, 3, 1}, 0.8 , 4},
-	{ {5,  6, 3, 1}, 0.8 , 4},
-	{ {10, 6, 3, 1}, 0.8,  4},
-	{ {15, 6, 3, 1}, 0.8,  4},
-}
-
-
-
-floating_logs_sprite_clips := [?]rl.Rectangle {
-	sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log, sprite_sheet_clip_medium_log,
-	sprite_sheet_clip_long_log,   sprite_sheet_clip_long_log, sprite_sheet_clip_long_log,
-	sprite_sheet_clip_small_log,  sprite_sheet_clip_small_log, sprite_sheet_clip_small_log, sprite_sheet_clip_small_log
+	{ rectangle = {0,  3, 4, 1}, speed = 1.2, warp_boundary_extension = 7, sprite_data = .Medium_Log },
+	{ rectangle = {6,  3, 4, 1}, speed = 1.2, warp_boundary_extension = 7, sprite_data = .Medium_Log },
+	{ rectangle = {12, 3, 4, 1}, speed = 1.2, warp_boundary_extension = 7, sprite_data = .Medium_Log },
+	{ rectangle = {18, 3, 4, 1}, speed = 1.2, warp_boundary_extension = 7, sprite_data = .Medium_Log },
+	{ rectangle = {0,  5, 6, 1}, speed = 2.2, warp_boundary_extension = 4, sprite_data = .Long_Log   },	
+	{ rectangle = {8,  5, 6, 1}, speed = 2.2, warp_boundary_extension = 4, sprite_data = .Long_Log   },
+	{ rectangle = {16, 5, 6, 1}, speed = 2.2, warp_boundary_extension = 4, sprite_data = .Long_Log   },
+	{ rectangle = {0,  6, 3, 1}, speed = 0.8, warp_boundary_extension = 4, sprite_data = .Short_Log  },
+	{ rectangle = {5,  6, 3, 1}, speed = 0.8, warp_boundary_extension = 4, sprite_data = .Short_Log  },
+	{ rectangle = {10, 6, 3, 1}, speed = 0.8, warp_boundary_extension = 4, sprite_data = .Short_Log  },
+	{ rectangle = {15, 6, 3, 1}, speed = 0.8, warp_boundary_extension = 4, sprite_data = .Short_Log  },
 }
 
 
 turtles := [?]Entity {
-	{ {2,  4, 1, 1}, -2, 2.5}, { {3,  4, 1, 1}, -2, 2.5},
-	{ {6, 4, 1, 1},  -2, 2.5}, { {7, 4, 1, 1},  -2, 2.5},
-	{ {10, 4, 1, 1}, -2, 2.5}, { {11, 4, 1, 1}, -2, 2.5},
-	
-	{ {0, 7, 1, 1}, -2, 1}, { {1, 7, 1, 1}, -2, 1}, { {2,  7, 1, 1}, -2, 1},
-	{ {4, 7, 1, 1}, -2, 1}, { {5, 7, 1, 1}, -2, 1}, { {6,  7, 1, 1}, -2, 1},
-	{ {8, 7, 1, 1}, -2, 1}, { {9, 7, 1, 1}, -2, 1}, { {10, 7, 1, 1}, -2, 1},
+	{ rectangle = {2,  4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {3,  4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{} },
+	{ rectangle = {6,  4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {7,  4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{} },
+	{ rectangle = {10, 4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {11, 4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{} },
+	{ rectangle = {0,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {1,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {2,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} },
+	{ rectangle = {4,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {5,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {6,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} },
+	{ rectangle = {8,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {9,  7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} }, 
+	{ rectangle = {10, 7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{} },
 }
 
 
 diving_turtles := [?]Entity {
-	{ {15.5, 4, 1, 1},  -2 , 2.5}, { {16.5, 4, 1, 1}, -2,  2.5},
-
-	{ {12, 7, 1, 1}, -2 ,  1}, { {13, 7, 1, 1}, -2,  1}, { {14, 7, 1, 1}, -2, 1}
+	{ rectangle = {15.5, 4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Diving_Turtle_Animation{} }, 
+	{ rectangle = {16.5, 4, 1, 1}, speed = -2, warp_boundary_extension = 2.5, sprite_data = Diving_Turtle_Animation{} },
+	{ rectangle = {12,   7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Diving_Turtle_Animation{} }, 
+	{ rectangle = {13,   7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Diving_Turtle_Animation{} }, 
+	{ rectangle = {14,   7, 1, 1}, speed = -2, warp_boundary_extension = 1  , sprite_data = Diving_Turtle_Animation{} }
 }
 
 regular_turtles_anim_fps : f32 = 3
@@ -1066,14 +1051,16 @@ game_update :: proc()
 		{ // draw obstacles
 			for log, i in gmem.floating_logs 
 			{
-				log_sprite_clip := floating_logs_sprite_clips[i]
-				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, log_sprite_clip, global_sprite_sheet_cell_size,  log.rectangle, global_cell_size, 0)
+				draw_sprite_sheet_clip_on_grid(log.sprite_data.(Sprite_Sheet_Clip), log.rectangle, global_cell_size, 0)
+				// log_sprite_clip := floating_logs_sprite_clips[i]
+				// rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, log_sprite_clip, global_sprite_sheet_cell_size,  log.rectangle, global_cell_size, 0)
 			}
 
 			for vehicle, i in gmem.vehicles
 			{
-				vehicle_sprite_sheet_clip := vehicle_sprite_sheet_clips[i]
-				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_clip,  global_sprite_sheet_cell_size, vehicle.rectangle, global_cell_size, 0)
+				draw_sprite_sheet_clip_on_grid(vehicle.sprite_data.(Sprite_Sheet_Clip), vehicle.rectangle, global_cell_size, 0)
+				// vehicle_sprite_sheet_clip := vehicle_sprite_sheet_clips[i]
+				// rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, vehicle_sprite_sheet_clip,  global_sprite_sheet_cell_size, vehicle.rectangle, global_cell_size, 0)
 			}
 
 			regular_turtles_current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(regular_turtles_anim_timer, regular_turtles_anim_fps, regular_turtle_anim_frames[:])
@@ -1093,7 +1080,7 @@ game_update :: proc()
 
 
 		{ // draw fly
-			clip := fly_is_active ? sprite_sheet_clip_fly : rl.Rectangle {}
+			clip := fly_is_active ? global_sprite_sheet_clips[.Fly] : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
 			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_cell_size, 0)
