@@ -17,6 +17,13 @@ bytes_aa_pixel_filter_shader        := #load("./pixel_filter.fs")
 
 global_filename_window_save_data := "window_save_data.frog"
 
+global_grid_cell_size                : f32 : 64
+global_number_grid_cells_axis_x : f32 : 14
+global_number_grid_cells_axis_y : f32 : 16
+global_game_view_pixels_width   : f32 : global_grid_cell_size * global_number_grid_cells_axis_x
+global_game_view_pixels_height  : f32 : global_grid_cell_size * global_number_grid_cells_axis_y
+
+
 Window_Save_Data :: struct
 {
 	x, y, width, height: i32
@@ -70,6 +77,8 @@ Game_Memory :: struct
 
 	// GAME
 
+	level_current : int,
+
 	// frogger
 	frogger_pos       : [2]f32,
 	frogger_move_lerp_timer     : Timer,
@@ -97,7 +106,9 @@ Game_Memory :: struct
 
 
 	// entities
-	entities :[]Entity,
+	// entities_by_level :[][]Entity,
+
+	// entities :[]Entity,
 
 	pause : bool,
 
@@ -240,47 +251,98 @@ game_init_platform :: proc()
 is_frogs_on_lilypad := [5]bool{true, true, true, true, false}
 
 
-entities := [?]Entity {
-	{ rectangle = {1,   9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   sprite_data = .Truck,                     collision_behavior = .Kill_Frogger},
-	{ rectangle = {6.5, 9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   sprite_data = .Truck,                     collision_behavior = .Kill_Frogger},
-	{ rectangle = {1,  10, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                   collision_behavior = .Kill_Frogger},
-	{ rectangle = {5,  10, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                   collision_behavior = .Kill_Frogger},
-	{ rectangle = {9,  10, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                   collision_behavior = .Kill_Frogger},
-	{ rectangle = {10, 11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                collision_behavior = .Kill_Frogger},
-	{ rectangle = {6,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                collision_behavior = .Kill_Frogger},
-	{ rectangle = {2,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                collision_behavior = .Kill_Frogger},
-	{ rectangle = {5,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                 collision_behavior = .Kill_Frogger},
-	{ rectangle = {9,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                 collision_behavior = .Kill_Frogger},
-	{ rectangle = {13, 12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                 collision_behavior = .Kill_Frogger},
-	{ rectangle = {10, 13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                      collision_behavior = .Kill_Frogger},
-	{ rectangle = {6,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                      collision_behavior = .Kill_Frogger},
-	{ rectangle = {2,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                      collision_behavior = .Kill_Frogger},
-	{ rectangle = {0,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                collision_behavior = .Move_Frogger},
-	{ rectangle = {6,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                collision_behavior = .Move_Frogger},
-	{ rectangle = {12, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                collision_behavior = .Move_Frogger},
-	{ rectangle = {18, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                collision_behavior = .Move_Frogger},
-	{ rectangle = {0,  5, 6, 1},   speed = 2.2, warp_boundary_extension = 4,   sprite_data = .Long_Log,                  collision_behavior = .Move_Frogger},	
-	{ rectangle = {8,  5, 6, 1},   speed = 2.2, warp_boundary_extension = 4,   sprite_data = .Long_Log,                  collision_behavior = .Move_Frogger},
-	{ rectangle = {16, 5, 6, 1},   speed = 2.2, warp_boundary_extension = 4,   sprite_data = .Long_Log,                  collision_behavior = .Move_Frogger},
-	{ rectangle = {0,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                 collision_behavior = .Move_Frogger},
-	{ rectangle = {5,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                 collision_behavior = .Move_Frogger},
-	{ rectangle = {10, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                 collision_behavior = .Move_Frogger},
-	{ rectangle = {15, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                 collision_behavior = .Move_Frogger},
-	{ rectangle = {2,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {3,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger},
-	{ rectangle = {6,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {7,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger},
-	{ rectangle = {10, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {11, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger},
-	{ rectangle = {0,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {1,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {2,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger},
-	{ rectangle = {4,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {5,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {6,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger},
-	{ rectangle = {8,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {9,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger}, 
-	{ rectangle = {10, 7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{}, collision_behavior = .Move_Frogger},
+entities_by_level := [?][]Entity {
+	entities_level_1[:],
+	entities_level_2[:],
+}
+
+entities_level_1 := [?]Entity {
+	{ rectangle = {1,   9, 2, 1},  speed = -1.5  ,warp_boundary_extension = 0,   sprite_data = .Truck,                                  collision_behavior = .Kill_Frogger},
+	{ rectangle = {6.5, 9, 2, 1},  speed = -1.5  ,warp_boundary_extension = 0,   sprite_data = .Truck,                                  collision_behavior = .Kill_Frogger},
+	{ rectangle = {1,  10, 1, 1},  speed =  1  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                                collision_behavior = .Kill_Frogger},
+	{ rectangle = {10, 11, 1, 1},  speed = -0.8  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
+	{ rectangle = {6,  11, 1, 1},  speed = -0.8  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
+	{ rectangle = {2,  11, 1, 1},  speed = -0.8  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
+	{ rectangle = {5,  12, 1, 1},  speed =  0.6  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
+	{ rectangle = {9,  12, 1, 1},  speed =  0.6  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
+	{ rectangle = {13, 12, 1, 1},  speed =  0.6  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
+	{ rectangle = {10, 13, 1, 1},  speed = -0.6  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
+	{ rectangle = {6,  13, 1, 1},  speed = -0.6  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
+	{ rectangle = {2,  13, 1, 1},  speed = -0.6  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
+	{ rectangle = {0,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {6,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {12, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {18, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  5, 6, 1},   speed = 3, warp_boundary_extension = 4,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},	
+	{ rectangle = {8,  5, 6, 1},   speed = 3, warp_boundary_extension = 4,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},
+	{ rectangle = {16, 5, 6, 1},   speed = 3, warp_boundary_extension = 4,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {5,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {10, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {15, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {2,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {3,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {6,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {7,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {10, 4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {11, 4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {1,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {2,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {4,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {5,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {6,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {8,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {9,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {10, 7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {15.5, 4, 1, 1}, speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Diving_Turtle_Animation{ timer_id = 0 }, collision_behavior = .Move_Frogger }, 
+	{ rectangle = {16.5, 4, 1, 1}, speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Diving_Turtle_Animation{ timer_id = 0 }, collision_behavior = .Move_Frogger },
+	{ rectangle = {12,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Diving_Turtle_Animation{ timer_id = 1 }, collision_behavior = .Move_Frogger }, 
+	{ rectangle = {13,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Diving_Turtle_Animation{ timer_id = 1 }, collision_behavior = .Move_Frogger }, 
+	{ rectangle = {14,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Diving_Turtle_Animation{ timer_id = 1 }, collision_behavior = .Move_Frogger }
+}
+
+entities_level_2 := [?]Entity {
+	{ rectangle = {1,   9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   sprite_data = .Truck,                                  collision_behavior = .Kill_Frogger},
+	{ rectangle = {6.5, 9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   sprite_data = .Truck,                                  collision_behavior = .Kill_Frogger},
+	{ rectangle = {1,  10, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                                collision_behavior = .Kill_Frogger},
+	{ rectangle = {5,  10, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                                collision_behavior = .Kill_Frogger},
+	{ rectangle = {9,  10, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                                collision_behavior = .Kill_Frogger},
+	{ rectangle = {10, 11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
+	{ rectangle = {6,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
+	{ rectangle = {2,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
+	{ rectangle = {5,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
+	{ rectangle = {9,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
+	{ rectangle = {13, 12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
+	{ rectangle = {10, 13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
+	{ rectangle = {6,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
+	{ rectangle = {2,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
+	{ rectangle = {0,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {6,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {12, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {18, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 7,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  5, 6, 1},   speed = 2.2, warp_boundary_extension = 4,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},	
+	{ rectangle = {8,  5, 6, 1},   speed = 2.2, warp_boundary_extension = 4,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},
+	{ rectangle = {16, 5, 6, 1},   speed = 2.2, warp_boundary_extension = 4,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {5,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {10, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {15, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
+	{ rectangle = {2,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {3,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {6,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {7,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {10, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {11, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {1,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {2,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {4,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {5,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {6,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
+	{ rectangle = {8,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {9,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {10, 7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Regular_Turtle_Animation{},              collision_behavior = .Move_Frogger},
 	{ rectangle = {15.5, 4, 1, 1}, speed = -2,  warp_boundary_extension = 2.5, sprite_data = Diving_Turtle_Animation{ timer_id = 0 }, collision_behavior = .Move_Frogger }, 
 	{ rectangle = {16.5, 4, 1, 1}, speed = -2,  warp_boundary_extension = 2.5, sprite_data = Diving_Turtle_Animation{ timer_id = 0 }, collision_behavior = .Move_Frogger },
 	{ rectangle = {12,   7, 1, 1}, speed = -2,  warp_boundary_extension = 1  , sprite_data = Diving_Turtle_Animation{ timer_id = 1 }, collision_behavior = .Move_Frogger }, 
@@ -293,12 +355,7 @@ regular_turtles_anim_timer : f32 = 0
 
 diving_turtles_anim_fps : f32 = regular_turtles_anim_fps
 
-// diving_turtles_anim_timers := [?]f32 {
-// 	0, 0,
-// 	1, 1, 1,
-// }
-
-diving_turtles_anim_timers := [?]f32 { 0, 1}
+diving_turtles_anim_timers := [?]f32 {0, 1}
 
 
 frogger_anim_timer := Timer {
@@ -308,11 +365,6 @@ frogger_anim_timer := Timer {
 
 frogger_move_lerp_duration : f32 = 0.1
 
-global_cell_size                : f32 : 64
-global_number_grid_cells_axis_x : f32 : 14
-global_number_grid_cells_axis_y : f32 : 16
-global_game_view_pixels_width   : f32 : global_cell_size * global_number_grid_cells_axis_x
-global_game_view_pixels_height  : f32 : global_cell_size * global_number_grid_cells_axis_y
 
 
 
@@ -404,18 +456,21 @@ move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 		rectangle_move_amount := entity.speed * dt
 		rectangle.x += rectangle_move_amount
 
-		should_warp_to_right_side_of_screen := rectangle_move_amount < 0 && rectangle.x < -rectangle.width - entity.warp_boundary_extension
-		should_warp_to_left_side_of_screen := rectangle_move_amount > 0 && rectangle.x > global_number_grid_cells_axis_x + entity.warp_boundary_extension
+		warp_pos_on_left_side_x := -rectangle.width
+		should_warp_to_right_side_of_screen := rectangle_move_amount < 0 && rectangle.x < warp_pos_on_left_side_x
+
+		warp_pos_on_right_side_x := global_number_grid_cells_axis_x + entity.warp_boundary_extension
+		should_warp_to_left_side_of_screen := rectangle_move_amount > 0 && rectangle.x > warp_pos_on_right_side_x 
 
 		if should_warp_to_right_side_of_screen
 		{
-			rectangle_overshoot_amount : f32 = -rectangle.x - entity.warp_boundary_extension
-			rectangle.x = global_number_grid_cells_axis_x + rectangle.width - rectangle_overshoot_amount
+			overshoot : f32 = warp_pos_on_left_side_x - rectangle.x 
+			rectangle.x = global_number_grid_cells_axis_x + entity.warp_boundary_extension - overshoot
 		}
 		else if should_warp_to_left_side_of_screen 
 		{
-			rectangle_overshoot_amount : f32 = rectangle.x - entity.warp_boundary_extension - global_number_grid_cells_axis_x
-			rectangle.x = -rectangle.width - rectangle_overshoot_amount
+			overshoot : f32 = rectangle.x - warp_pos_on_right_side_x
+			rectangle.x = -rectangle.width + overshoot
 		}
 	}
 }
@@ -457,11 +512,11 @@ move_frogger_with_intersecting_entities :: proc(frogger_pos, frogger_lerp_end_po
 
 // Note(jblat): This will make sure that if the above entities change,
 // They will actually be reset
-@(export)
-game_reset_entities :: proc(mem: ^Game_Memory)
-{
-	gmem.entities = entities[:]
-}
+// @(export)
+// game_reset_entities :: proc(mem: ^Game_Memory)
+// {
+// 	gmem.entities = entities[:]
+// }
 
 
 
@@ -525,7 +580,7 @@ game_init :: proc()
 		playing = false,
 	}
 
-	game_reset_entities(gmem)
+	// game_reset_entities(gmem)
 }
 
 
@@ -550,6 +605,7 @@ frogger_start_dying :: proc()
 @(export)
 game_update :: proc()
 {
+	entities := entities_by_level[gmem.level_current]
 	if rl.IsKeyPressed(.SPACE)
 	{
 		fmt.printfln("Hey!")
@@ -733,7 +789,7 @@ game_update :: proc()
 		if should_check_for_lily_frogger_collision
 		{
 			frogger_center_pos    := gmem.frogger_pos + 0.5
-			entity_that_lily_is_on   := gmem.entities[lily_logs_to_spawn_on[lily_log_to_spawn_on_index]]
+			entity_that_lily_is_on   := entities[lily_logs_to_spawn_on[lily_log_to_spawn_on_index]]
 			lily_relative_log_rectangle := rl.Rectangle { lily_relative_log_pos_x, 0, 1, 1 }
 			lily_world_rectangle        := rl.Rectangle{ 
 				lily_relative_log_rectangle.x + entity_that_lily_is_on.rectangle.x, 
@@ -824,14 +880,14 @@ game_update :: proc()
 
 
 		{ // move entities
-			move_entities_and_wrap(gmem.entities, frame_time)
+			move_entities_and_wrap(entities, frame_time)
 		}
 
 
 		should_process_moving_frogger_with_intersecting_entities := !animation_timer_is_playing(gmem.frogger_is_dying_timer) 
 		if should_process_moving_frogger_with_intersecting_entities
 		{ 
-			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, gmem.entities, frame_time)
+			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, entities, frame_time)
 		}
 
 
@@ -926,7 +982,7 @@ game_update :: proc()
 			}
 
 			frogger_center_pos := gmem.frogger_pos + 0.5
-			for entity in gmem.entities
+			for entity in entities
 			{
 				is_frogger_intersecting_entity := rl.CheckCollisionPointRec(frogger_center_pos, entity.rectangle)
 				can_entity_kill_frogger := entity.collision_behavior == .Kill_Frogger
@@ -960,7 +1016,7 @@ game_update :: proc()
 				frogger_start_dying()
 			}
 
-			for entity in gmem.entities
+			for entity in entities
 			{
 				is_frogger_center_pos_inside_entity := rl.CheckCollisionPointRec(frogger_center_pos, entity.rectangle)
 
@@ -972,7 +1028,7 @@ game_update :: proc()
 				}
 			}
 
-			for turtle in gmem.entities
+			for turtle in entities
 			{
 				#partial switch a in turtle.sprite_data
 				{
@@ -1037,30 +1093,30 @@ game_update :: proc()
 		rl.ClearBackground(rl.LIGHTGRAY) 
 
 		{ // draw background
-			scale : f32 =  global_cell_size / global_sprite_sheet_cell_size
+			scale : f32 =  global_grid_cell_size / global_sprite_sheet_cell_size
 			rl.DrawTextureEx(gmem.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
 
 		{ // draw obstacles
-			for entity, i in gmem.entities 
+			for entity, i in entities 
 			{
 				switch sd in entity.sprite_data
 				{
 					case Sprite_Sheet_Clip:
 					{
-						draw_sprite_sheet_clip_on_grid(sd, entity.rectangle, global_cell_size, 0)
+						draw_sprite_sheet_clip_on_grid(sd, entity.rectangle, global_grid_cell_size, 0)
 					}
 					case Regular_Turtle_Animation:
 					{
 						regular_turtles_current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(regular_turtles_anim_timer, regular_turtles_anim_fps, regular_turtle_anim_frames[:])
-						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, regular_turtles_current_frame_sprite_sheet_clip_rectangle,  global_sprite_sheet_cell_size, entity.rectangle, global_cell_size, 0)
+						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, regular_turtles_current_frame_sprite_sheet_clip_rectangle,  global_sprite_sheet_cell_size, entity.rectangle, global_grid_cell_size, 0)
 					}
 					case Diving_Turtle_Animation:
 					{
 						anim_timer := diving_turtles_anim_timers[sd.timer_id]
 						diving_turtles_current_frame_sprite_sheet_clilp_rectangle := animation_get_frame_sprite_clip(anim_timer, diving_turtles_anim_fps, diving_turtle_anim_frames[:])
-						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle,  global_sprite_sheet_cell_size, entity.rectangle, global_cell_size, 0)	
+						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle,  global_sprite_sheet_cell_size, entity.rectangle, global_grid_cell_size, 0)	
 					}
 				}
 			}
@@ -1072,7 +1128,7 @@ game_update :: proc()
 			clip := fly_is_active ? global_sprite_sheet_clips[.Fly] : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_cell_size, 0)
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_grid_cell_size, 0)
 		}
 
 		
@@ -1082,7 +1138,7 @@ game_update :: proc()
 				is_there_a_frog_on_this_lilypad := gmem.is_frog_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
-					rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_cell_size, 0)
+					rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
 				}
 			}
 		}
@@ -1095,7 +1151,7 @@ game_update :: proc()
 			
 			current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(anim_timer, anim_fps, frames)
 			rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, global_sprite_sheet_cell_size, rectangle,  global_cell_size, rotation)
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, global_sprite_sheet_cell_size, rectangle,  global_grid_cell_size, rotation)
 		}
 
 		
@@ -1120,7 +1176,7 @@ game_update :: proc()
 				{
 					dst_rectangle.x += 0.15
 				}
-				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, global_sprite_sheet_cell_size,  dst_rectangle, global_cell_size, rotation)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, global_sprite_sheet_cell_size,  dst_rectangle, global_grid_cell_size, rotation)
 			}
 			else 
 			{
@@ -1133,27 +1189,27 @@ game_update :: proc()
 					lily_height
 				}
 				rotation := map_direction_rotation[lily_direction]
-				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip,  global_sprite_sheet_cell_size, lily_world_rectangle, global_cell_size, rotation)
+				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip,  global_sprite_sheet_cell_size, lily_world_rectangle, global_grid_cell_size, rotation)
 			}
 		}
 
 		if timer_is_playing(gmem.timer_is_active_score_100)
 		{
 			dst_rect := rl.Rectangle {gmem.pos_score_100.x, gmem.pos_score_100.y, 1, 1}
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_100,  global_sprite_sheet_cell_size, dst_rect, global_cell_size, 0)
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_100,  global_sprite_sheet_cell_size, dst_rect, global_grid_cell_size, 0)
 		}
 
 		if timer_is_playing(gmem.timer_is_active_score_200)
 		{
 			dst_rect := rl.Rectangle {gmem.pos_score_200.x, gmem.pos_score_200.y, 1, 1}
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_200,  global_sprite_sheet_cell_size, dst_rect, global_cell_size, 0)			
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_200,  global_sprite_sheet_cell_size, dst_rect, global_grid_cell_size, 0)			
 		}
 	
 		if gmem.dbg_show_grid 
 		{ 	
 			for x : f32 = 0; x < global_number_grid_cells_axis_x; x += 1 
 			{
-				render_x := x * global_cell_size
+				render_x := x * global_grid_cell_size
 				render_start_y : f32 = 0
 				render_end_y := global_game_view_pixels_height
 				rl.DrawLineV([2]f32{render_x, render_start_y}, [2]f32{render_x, render_end_y}, rl.WHITE)
@@ -1161,7 +1217,7 @@ game_update :: proc()
 
 			for y : f32 = 0; y < global_number_grid_cells_axis_y; y += 1 
 			{
-				render_y := y * global_cell_size
+				render_y := y * global_grid_cell_size
 				render_start_x : f32 = 0
 				render_end_x := global_game_view_pixels_width
 				rl.DrawLineV([2]f32{render_start_x, render_y}, [2]f32{render_end_x, render_y}, rl.WHITE)
@@ -1172,7 +1228,7 @@ game_update :: proc()
 		if gmem.dbg_show_entity_bounding_rectangles
 		{	
 			frogger_rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-			rlgrid.draw_rectangle_lines_on_grid(frogger_rectangle, 4, rl.GREEN, global_cell_size)
+			rlgrid.draw_rectangle_lines_on_grid(frogger_rectangle, 4, rl.GREEN, global_grid_cell_size)
 
 			// TODO(jblat): draw the rest of the stuff like logs and whatnot
 		}
@@ -1183,7 +1239,7 @@ game_update :: proc()
 
 			one_up_pos := [2]f32{4,0}
 
-			rlgrid.draw_text_on_grid_right_justified(gmem.font, "1-UP", one_up_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_cell_size))
+			rlgrid.draw_text_on_grid_right_justified(gmem.font, "1-UP", one_up_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
 
 			score_text := fmt.ctprintf("%05d", gmem.score)
 			score_text_pos := [2]f32 {
@@ -1191,12 +1247,12 @@ game_update :: proc()
 				one_up_pos.y + heads_up_display_font_size
 			}
 
-			rlgrid.draw_text_on_grid_right_justified(gmem.font, score_text, score_text_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_cell_size))
+			rlgrid.draw_text_on_grid_right_justified(gmem.font, score_text, score_text_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
 
 			if !timer_is_complete(gmem.level_end_timer)
 			{
 				text_get_ready : cstring = "get ready for next level!"
-				rlgrid.draw_text_on_grid_centered(gmem.font, text_get_ready, [2]f32{global_number_grid_cells_axis_x/2, 8}, heads_up_display_font_size, 0, rl.WHITE, f32(global_cell_size))
+				rlgrid.draw_text_on_grid_centered(gmem.font, text_get_ready, [2]f32{global_number_grid_cells_axis_x/2, 8}, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
 			}
 		}	
 	}

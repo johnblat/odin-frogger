@@ -17,7 +17,6 @@ Game_API :: struct
 	// api
 	init_platform: proc(),
 	init: proc(),
-	reset_entities: proc(mem: rawptr),
 	update: proc(),
 	should_run: proc() -> bool,
 	memory_ptr: proc() -> rawptr,
@@ -192,7 +191,6 @@ main :: proc()
 					game_memory := game_api.memory_ptr()
 					game_api = new_game_api
 					game_api.hot_reload(game_memory)
-					game_api.reset_entities(game_memory)
 				}
 			}
 			else
