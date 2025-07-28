@@ -32,11 +32,7 @@ Window_Save_Data :: struct
 
 Sprite_Data :: union {
 	Sprite_Clip_Id,
-	Animation_Player_Id,
-}
-
-Diving_Turtle_Animation :: struct {
-	timer_id: int,
+	Animation_Player_Name,
 }
 
 
@@ -85,6 +81,8 @@ Game_Memory :: struct
 
 	// GAME
 
+	animation_player_frogger_is_dying: Animation_Player,
+
 	level_current : int,
 
 	// frogger
@@ -94,7 +92,6 @@ Game_Memory :: struct
 	frogger_move_lerp_end_pos   : [2]f32,
 
 	frogger_sprite_rotation: f32,
-	frogger_is_dying_timer : Animation_Timer,
 
 	is_lily_on_frogger : bool,
 
@@ -111,7 +108,6 @@ Game_Memory :: struct
 
 	pos_score_100: [2]f32,
 	pos_score_200: [2]f32,
-
 
 	// entities
 	// entities_by_level :[][]Entity,
@@ -288,72 +284,72 @@ entities_level_1 := [?]Entity {
 	{ rectangle = {5,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,     sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
 	{ rectangle = {10, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,     sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
 	{ rectangle = {15, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 4,     sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
-	{ rectangle = {2,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {3,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {6,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {7,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {10, 4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {11, 4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {0,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {1,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {2,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {4,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {5,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {6,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {8,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {9,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {10, 7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {15.5, 4, 1, 1}, speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Diving_Turtle_0, collision_behavior = .Move_Frogger }, 
-	{ rectangle = {16.5, 4, 1, 1}, speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Diving_Turtle_0, collision_behavior = .Move_Frogger },
-	{ rectangle = {12,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Diving_Turtle_1, collision_behavior = .Move_Frogger }, 
-	{ rectangle = {13,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Diving_Turtle_1, collision_behavior = .Move_Frogger }, 
-	{ rectangle = {14,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Diving_Turtle_1, collision_behavior = .Move_Frogger }
+	{ rectangle = {2,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {3,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
+	{ rectangle = {6,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {7,  4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
+	{ rectangle = {10, 4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {11, 4, 1, 1},   speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {1,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {2,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
+	{ rectangle = {4,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {5,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {6,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
+	{ rectangle = {8,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {9,  7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
+	{ rectangle = {10, 7, 1, 1},   speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
+	{ rectangle = {15.5, 4, 1, 1}, speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Diving_Turtle_0, collision_behavior = .Move_Frogger }, 
+	{ rectangle = {16.5, 4, 1, 1}, speed = -1.5,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Name.Diving_Turtle_0, collision_behavior = .Move_Frogger },
+	{ rectangle = {12,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Diving_Turtle_1, collision_behavior = .Move_Frogger }, 
+	{ rectangle = {13,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Diving_Turtle_1, collision_behavior = .Move_Frogger }, 
+	{ rectangle = {14,   7, 1, 1}, speed = -1.5,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Name.Diving_Turtle_1, collision_behavior = .Move_Frogger }
 }
 
 entities_level_2 := [?]Entity {
-	{ rectangle = {1,   9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   sprite_data = .Truck,                                  collision_behavior = .Kill_Frogger},
-	{ rectangle = {6.5, 9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   sprite_data = .Truck,                                  collision_behavior = .Kill_Frogger},
-	{ rectangle = {1,  10, 1, 1},  speed =  1  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                                collision_behavior = .Kill_Frogger},
-	{ rectangle = {5,  10, 1, 1},  speed =  1  ,warp_boundary_extension = 0,   sprite_data = .Racecar,                                collision_behavior = .Kill_Frogger},
-	{ rectangle = {10, 11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
-	{ rectangle = {6,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
-	{ rectangle = {2,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   sprite_data = .Purple_Car,                             collision_behavior = .Kill_Frogger},
-	{ rectangle = {5,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
-	{ rectangle = {9,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
-	{ rectangle = {13, 12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   sprite_data = .Bulldozer,                              collision_behavior = .Kill_Frogger},
-	{ rectangle = {10, 13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
-	{ rectangle = {6,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
-	{ rectangle = {2,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
-	{ rectangle = {0,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {6,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {12, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {18, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {24, 3, 3, 1},   speed = 1.2, warp_boundary_extension = 12,  sprite_data = Animation_Player_Id.Alligator,                  collision_behavior = .Move_Frogger},
-	{ rectangle = {0,  5, 6, 1},   speed = 4,   warp_boundary_extension = 12,  sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},
-	{ rectangle = {16,  5, 6, 1},  speed = 4,   warp_boundary_extension = 12,  sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},		
-	{ rectangle = {0,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
-	{ rectangle = {5,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
-	{ rectangle = {10, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
-	{ rectangle = {2,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {3,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {6,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {7,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {10, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {11, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {0,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {1,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {2,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {4,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {5,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {6,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {8,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {9,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger}, 
-	{ rectangle = {10, 7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Regular_Turtle,              collision_behavior = .Move_Frogger},
-	{ rectangle = {15.5, 4, 1, 1}, speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Diving_Turtle_0, collision_behavior = .Move_Frogger }, 
-	{ rectangle = {16.5, 4, 1, 1}, speed = -2,  warp_boundary_extension = 2.5, sprite_data = Animation_Player_Id.Diving_Turtle_0, collision_behavior = .Move_Frogger },
-	{ rectangle = {12,   7, 1, 1}, speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Diving_Turtle_1, collision_behavior = .Move_Frogger }, 
-	{ rectangle = {13,   7, 1, 1}, speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Diving_Turtle_1, collision_behavior = .Move_Frogger }, 
-	{ rectangle = {14,   7, 1, 1}, speed = -2,  warp_boundary_extension = 1  , sprite_data = Animation_Player_Id.Diving_Turtle_1, collision_behavior = .Move_Frogger }
+	{ rectangle = {1,   9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
+	{ rectangle = {6.5, 9, 2, 1},  speed = -1.5,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
+	{ rectangle = {1,  10, 1, 1},  speed =  1  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
+	{ rectangle = {5,  10, 1, 1},  speed =  1  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
+	{ rectangle = {10, 11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
+	{ rectangle = {6,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
+	{ rectangle = {2,  11, 1, 1},  speed = -2  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
+	{ rectangle = {5,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
+	{ rectangle = {9,  12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
+	{ rectangle = {13, 12, 1, 1},  speed =  2  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
+	{ rectangle = {10, 13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
+	{ rectangle = {6,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
+	{ rectangle = {2,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
+	{ rectangle = {0,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
+	{ rectangle = {6,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
+	{ rectangle = {12, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
+	{ rectangle = {18, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
+	{ rectangle = {24, 3, 3, 1},   speed = 1.2, warp_boundary_extension = 12,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Alligator, },
+	{ rectangle = {0,  5, 6, 1},   speed = 4,   warp_boundary_extension = 12,  collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
+	{ rectangle = {16,  5, 6, 1},  speed = 4,   warp_boundary_extension = 12,  collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },		
+	{ rectangle = {0,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
+	{ rectangle = {5,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
+	{ rectangle = {10, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
+	{ rectangle = {2,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {3,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
+	{ rectangle = {6,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {7,  4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
+	{ rectangle = {10, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {11, 4, 1, 1},   speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
+	{ rectangle = {0,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {1,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {2,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
+	{ rectangle = {4,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {5,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {6,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
+	{ rectangle = {8,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {9,  7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, }, 
+	{ rectangle = {10, 7, 1, 1},   speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
+	{ rectangle = {15.5, 4, 1, 1}, speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  }, 
+	{ rectangle = {16.5, 4, 1, 1}, speed = -2,  warp_boundary_extension = 2.5, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
+	{ rectangle = {12,   7, 1, 1}, speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  }, 
+	{ rectangle = {13,   7, 1, 1}, speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  }, 
+	{ rectangle = {14,   7, 1, 1}, speed = -2,  warp_boundary_extension = 1  , collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  }
 }
 
 animation_alligator_fps : f32 = 3
@@ -371,15 +367,40 @@ animation_frames_diving_turtles := [?]Sprite_Clip_Id{
 }
 animation_fps_diving_turtles : f32 = animation_fps_regular_turtles
 
-Animation_Id :: enum {
-	Alligator,
-	Regular_Turtle,
-	Diving_Turtle
-	// Frogger_Dying_Hit,
-	// Frogger_Dying_Drown,
+
+animation_frames_frogger_dying_hit := [?]Sprite_Clip_Id {
+	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
+	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
+	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
+	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty, 
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
+	.Empty,
 }
 
-Animation_Player_Id :: enum {
+animation_frames_frogger_dying_drown := [?]Sprite_Clip_Id {
+	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
+	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
+	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
+	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty, 
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
+	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
+	.Empty,
+}
+
+Animation_Name :: enum {
+	Alligator,
+	Regular_Turtle,
+	Diving_Turtle,
+	Frogger_Dying_Hit,
+	Frogger_Dying_Drown,
+}
+
+Animation_Player_Name :: enum {
 	Alligator,
 	Regular_Turtle,
 	Diving_Turtle_0,
@@ -388,35 +409,34 @@ Animation_Player_Id :: enum {
 
 Animation_Player :: struct {
 	timer: Animation_Timer,
-	animation_id : Animation_Id,
+	animation_name : Animation_Name,
 }
 
-animation_frames := [Animation_Id][]Sprite_Clip_Id {
+animation_frames := [Animation_Name][]Sprite_Clip_Id {
 	.Alligator = animation_frames_alligator[:],
 	.Regular_Turtle =  animation_frames_regular_turtles[:],
 	.Diving_Turtle = animation_frames_diving_turtles[:],
+	.Frogger_Dying_Hit = animation_frames_frogger_dying_hit[:],
+	.Frogger_Dying_Drown = animation_frames_frogger_dying_drown[:],
 }
 
-animation_timers := [Animation_Player_Id]Animation_Timer {
-	.Alligator = animation_timer_alligator,
-	.Regular_Turtle = animation_timer_regular_turtles,
-	.Diving_Turtle_0 = Animation_Timer { t = 0, playing = true, loop = true },
-	.Diving_Turtle_1 = Animation_Timer { t = 1, playing = true, loop = true },
+
+animation_players := [Animation_Player_Name]Animation_Player {
+	.Alligator       = { timer = { t = 0, playing = true, loop = true }, animation_name = .Alligator },
+	.Regular_Turtle  = { timer = { t = 0, playing = true, loop = true }, animation_name = .Regular_Turtle },
+	.Diving_Turtle_0 = { timer = { t = 0, playing = true, loop = true }, animation_name = .Diving_Turtle },
+	.Diving_Turtle_1 = { timer = { t = 1, playing = true, loop = true }, animation_name = .Diving_Turtle },
 }
 
-animation_fps_list := [Animation_Id]f32 {
+animation_player_frogger_is_dying :=  Animation_Player { timer = { t = 0, playing = false, loop = false }, animation_name = .Frogger_Dying_Hit }
+
+animation_fps_list := [Animation_Name]f32 {
 	.Alligator = 1,
 	.Regular_Turtle = 3,
 	.Diving_Turtle = 3,
+	.Frogger_Dying_Hit = 12,
+	.Frogger_Dying_Drown = 12,
 }
-
-animation_players := [Animation_Player_Id]Animation_Id {
-	.Alligator = .Alligator,
-	.Regular_Turtle = .Regular_Turtle,
-	.Diving_Turtle_0 = .Diving_Turtle,
-	.Diving_Turtle_1 = .Diving_Turtle,
-}
-
 
 frogger_anim_timer := Timer {
 	amount = 0.25,
@@ -473,38 +493,9 @@ lily_lerp_timer := Timer {
 lily_lerp_relative_log_start_x : f32 = 0
 lily_lerp_relative_log_end_x   : f32 = 0 
 
-lily_logs_to_spawn_on := [?]int{18, 1, 3}
+lily_logs_to_spawn_on := [?]int{22, 1, 3}
 lily_log_to_spawn_on_index : int = 0 // index into above array
 
-
-// TODO(jblat): Make it so duration is calculated every frame and not on setup
-frogger_is_dying_animation_fps : f32 = 12
-frogger_is_dying_splat_animation_frames := [?]rl.Rectangle{
-	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
-	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
-	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
-	{0, 4, 1, 1}, {1, 4, 1, 1}, {2, 4, 1, 1}, {1, 4, 1, 1}, 
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{3, 4, 1, 1},
-}
-frogger_is_dying_ripple_animation_frames := [?]rl.Rectangle{
-	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
-	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
-	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
-	{1, 3, 1, 1}, {2, 3, 1, 1}, {3, 3, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{0, 3, 1, 1}, {0, 3, 1, 1}, {3, 4, 1, 1}, {3, 4, 1, 1},
-	{3, 4, 1, 1},
-}
-
-frogger_is_dying_animation_frames : []rl.Rectangle
 
 
 move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
@@ -634,11 +625,8 @@ game_init :: proc()
 	gmem.timer_is_active_score_100 = timer_init(2.0, false)
 	gmem.timer_is_active_score_200 = timer_init(2.0, false)
 
-	gmem.frogger_is_dying_timer = Animation_Timer{
-		t = 0,
-		loop = false,
-		playing = false,
-	}
+	gmem.animation_player_frogger_is_dying = { timer = { t = 0, playing = false, loop = false }, animation_name = .Frogger_Dying_Hit }
+
 
 	// game_reset_entities(gmem)
 }
@@ -653,11 +641,12 @@ frogger_reset :: proc(pos: [2]f32)
 }
 
 
-frogger_start_dying :: proc()
+frogger_start_dying :: proc(animation_name: Animation_Name)
 {
+	gmem.animation_player_frogger_is_dying.animation_name = animation_name
 	gmem.is_lily_on_frogger = false
 	timer_stop(&gmem.frogger_move_lerp_timer)
-	animation_timer_start(&gmem.frogger_is_dying_timer)
+	animation_timer_start(&gmem.animation_player_frogger_is_dying.timer)
 }
 
 
@@ -683,11 +672,9 @@ root_state_game :: proc()
 
 	frogger_start_pos := [2]f32{7,14}
 
-	frogger_anim_frames := [?]rl.Rectangle{
-		{0, 0, 1, 1}, {1, 0, 1, 1}, {0, 0, 1, 1}, {2, 0, 1, 1}
+	frogger_anim_frames := [?]Sprite_Clip_Id{
+		.Frogger_Frame_1, .Frogger_Frame_2, .Frogger_Frame_1, .Frogger_Frame_0,
 	}
-
-
 
 
 	river := rl.Rectangle{0, 3, 14, 5}
@@ -702,7 +689,7 @@ root_state_game :: proc()
 	if should_run_simulation
 	{	
 
-		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.frogger_is_dying_timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause
+		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -874,19 +861,22 @@ root_state_game :: proc()
 			timer_advance(&frogger_anim_timer, frame_time)
 			timer_advance(&gmem.timer_is_active_score_100, frame_time)
 			timer_advance(&gmem.timer_is_active_score_200, frame_time)
-			for animation_player_id in Animation_Player_Id
+			for &animation_player in animation_players
 			{
-				animation_id := animation_players[animation_player_id]
-				animation_timer_advance(&animation_timers[animation_player_id], len(animation_frames[animation_id]), animation_fps_list[animation_id], frame_time)
+				animation := animation_frames[animation_player.animation_name]
+				animation_fps := animation_fps_list[animation_player.animation_name]
+				animation_timer_advance(&animation_player.timer, len(animation), animation_fps, frame_time)
 			}
 		}
 
 
 		{ // frogger death animation
-			if animation_timer_is_playing(gmem.frogger_is_dying_timer)
+			if animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)
 			{
-				animation_timer_advance(&gmem.frogger_is_dying_timer, len(frogger_is_dying_animation_frames), frogger_is_dying_animation_fps, frame_time)
-				did_complete := animation_timer_is_complete(gmem.frogger_is_dying_timer, len(frogger_is_dying_animation_frames), frogger_is_dying_animation_fps)
+				animation := animation_frames[animation_player_frogger_is_dying.animation_name]
+				animation_fps := animation_fps_list[animation_player_frogger_is_dying.animation_name]
+				animation_timer_advance(&gmem.animation_player_frogger_is_dying.timer, len(animation), animation_fps, frame_time)
+				did_complete := animation_timer_is_complete(gmem.animation_player_frogger_is_dying.timer, len(animation), animation_fps)
 				if did_complete
 				{
 					frogger_reset(frogger_start_pos)
@@ -919,7 +909,7 @@ root_state_game :: proc()
 
 		move_entities_and_wrap(entities, frame_time)
 
-		should_process_moving_frogger_with_intersecting_entities := !animation_timer_is_playing(gmem.frogger_is_dying_timer) 
+		should_process_moving_frogger_with_intersecting_entities := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) 
 		if should_process_moving_frogger_with_intersecting_entities
 		{ 
 			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, entities, frame_time)
@@ -935,7 +925,7 @@ root_state_game :: proc()
 			}
 		}
 
-		should_check_for_win_condtions := !animation_timer_is_playing(gmem.frogger_is_dying_timer) && !timer_is_playing(gmem.level_end_timer)
+		should_check_for_win_condtions := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !timer_is_playing(gmem.level_end_timer)
 		if should_check_for_win_condtions 
 		{
 			for lilypad, i in lilypads 
@@ -1011,14 +1001,13 @@ root_state_game :: proc()
 			}
 		}
 		
-		should_check_for_frogger_is_killed := !animation_timer_is_playing(gmem.frogger_is_dying_timer)  && !gmem.dbg_is_frogger_unkillable
+		should_check_for_frogger_is_killed := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)  && !gmem.dbg_is_frogger_unkillable
 		if should_check_for_frogger_is_killed 
 		{
 			is_frogger_out_of_bounds := gmem.frogger_pos.x + 0.5 < 0 || gmem.frogger_pos.x - 0.5 >= global_number_grid_cells_axis_x -1 || gmem.frogger_pos.y < 0 || gmem.frogger_pos.y > global_number_grid_cells_axis_y
 			if is_frogger_out_of_bounds 
 			{
-				frogger_is_dying_animation_frames = frogger_is_dying_ripple_animation_frames[:]
-				frogger_start_dying()
+				frogger_start_dying(.Frogger_Dying_Drown)
 			}
 
 			frogger_center_pos := gmem.frogger_pos + 0.5
@@ -1030,8 +1019,7 @@ root_state_game :: proc()
 
 				if is_frogger_hit_by_entity
 				{
-					frogger_is_dying_animation_frames = frogger_is_dying_splat_animation_frames[:]
-					frogger_start_dying()
+					frogger_start_dying(.Frogger_Dying_Hit)
 				}
 			}
 
@@ -1052,8 +1040,7 @@ root_state_game :: proc()
 
 			if did_frogger_collide_with_riverbed
 			{
-				frogger_is_dying_animation_frames = frogger_is_dying_ripple_animation_frames[:]
-				frogger_start_dying()
+				frogger_start_dying(.Frogger_Dying_Drown)
 			}
 
 			for entity in entities
@@ -1072,14 +1059,17 @@ root_state_game :: proc()
 			{
 				#partial switch sd in entity.sprite_data
 				{
-					case Animation_Player_Id:
+					case Animation_Player_Name:
 					{
-						animation_player_id := sd
-						animation_id := animation_players[animation_player_id]
+						animation_player_name := sd
+						animation_player := animation_players[animation_player_name]
+						animation_fps := animation_fps_list[animation_player.animation_name]
 
-						if animation_id == .Alligator
+						clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_fps, animation_frames[animation_player.animation_name])
+
+						if animation_player.animation_name == .Alligator
 						{
-							clip := animation_get_frame_sprite_clip_id(animation_timers[sd].t, animation_fps_list[animation_id], animation_frames[animation_id])
+							// clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_fps, animation_frames[animation_player.animation_name])
 							if clip == .Alligator_Mouth_Open
 							{
 								hit_box := alligator_hit_box_relative_mouth_open
@@ -1090,15 +1080,14 @@ root_state_game :: proc()
 								did_frogger_collide_with_hitbox := rl.CheckCollisionPointRec(frogger_center_pos, hit_box)
 								if did_frogger_collide_with_hitbox
 								{
-									frogger_is_dying_animation_frames = frogger_is_dying_splat_animation_frames[:]
-									frogger_start_dying()
+									frogger_start_dying(.Frogger_Dying_Hit)
 								}
 							}
 						}
-						else if animation_id == .Diving_Turtle
+						else if animation_player.animation_name == .Diving_Turtle
 						{
 							is_frogger_center_pos_inside_turtle_rectangle := rl.CheckCollisionPointRec(frogger_center_pos,  entity.rectangle)
-							clip := animation_get_frame_sprite_clip_id(animation_timers[sd].t, animation_fps_list[animation_id], animation_frames[animation_id])
+							// clip := animation_get_frame_sprite_clip_id(animation_timers[sd].t, animation_fps_list[animation_id], animation_frames[animation_id])
 							diving_turtles_underwater_clip_id := Sprite_Clip_Id.Empty
 							is_turtle_underwater := clip == diving_turtles_underwater_clip_id
 							
@@ -1117,8 +1106,7 @@ root_state_game :: proc()
 
 			if did_frogger_fall_in_river
 			{
-				frogger_is_dying_animation_frames = frogger_is_dying_ripple_animation_frames[:]
-				frogger_start_dying()
+				frogger_start_dying(.Frogger_Dying_Drown)
 			}
 		}	
 	}
@@ -1167,14 +1155,12 @@ root_state_game :: proc()
 					{
 						draw_sprite_sheet_clip_on_grid(sd, entity.rectangle, global_grid_cell_size, 0)
 					}
-					case Animation_Player_Id:
+					case Animation_Player_Name:
 					{
 						animation_player_id := sd
-						animation_id := animation_players[animation_player_id]
-						animation_timer := animation_timers[animation_player_id]
-						animation_frames := animation_frames[animation_id]
-						animation_fps := animation_fps_list[animation_id]
-						clip := animation_get_frame_sprite_clip_id(animation_timer.t, animation_fps, animation_frames)
+						animation_player := animation_players[sd]
+						animation_fps := animation_fps_list[animation_player.animation_name]
+						clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_fps, animation_frames[animation_player.animation_name])
 						draw_sprite_sheet_clip_on_grid(clip, entity.rectangle, global_grid_cell_size, 0)
 					}
 				}
@@ -1203,14 +1189,15 @@ root_state_game :: proc()
 		}
 
 		{ // draw frogger
-			anim_timer    : f32 =    animation_timer_is_playing(gmem.frogger_is_dying_timer) ? gmem.frogger_is_dying_timer.t     : frogger_anim_timer.amount
-			anim_fps      : f32 =    animation_timer_is_playing(gmem.frogger_is_dying_timer) ? frogger_is_dying_animation_fps       : 12.0 
-			frames :[]rl.Rectangle = animation_timer_is_playing(gmem.frogger_is_dying_timer) ? frogger_is_dying_animation_frames[:] : frogger_anim_frames[:]
-			rotation : f32         = animation_timer_is_playing(gmem.frogger_is_dying_timer) ? 0                            : gmem.frogger_sprite_rotation
+			anim_timer    : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? gmem.animation_player_frogger_is_dying.timer.t     : frogger_anim_timer.amount
+			anim_fps      : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_fps_list[gmem.animation_player_frogger_is_dying.animation_name]       : 12.0 
+			frames :[]Sprite_Clip_Id = animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_frames[gmem.animation_player_frogger_is_dying.animation_name ] : frogger_anim_frames[:]
+			rotation : f32         = animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? 0                            : gmem.frogger_sprite_rotation
 			
-			current_frame_sprite_sheet_clip_rectangle := animation_get_frame_sprite_clip(anim_timer, anim_fps, frames)
+			clip := animation_get_frame_sprite_clip_id(anim_timer, anim_fps, frames)
 			rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, current_frame_sprite_sheet_clip_rectangle, global_sprite_sheet_cell_size, rectangle,  global_grid_cell_size, rotation)
+
+			draw_sprite_sheet_clip_on_grid(clip, rectangle, global_grid_cell_size, rotation)
 		}
 
 		
