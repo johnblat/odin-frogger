@@ -3,11 +3,6 @@ package game
 import "core:math"
 import rl "vendor:raylib"
 
-// Animation :: struct 
-// {
-// 	timer       :Timer,
-// 	frame_clips :[]rl.Rectangle, 
-// }
 
 animation_get_current_frame :: proc(t, fps: f32, number_of_frames: int) -> int
 {
@@ -31,7 +26,7 @@ animation_get_frame_sprite_clip :: proc(t, fps: f32, frame_clips: []rl.Rectangle
 }
 
 
-animation_get_frame_sprite_clip_id :: proc(t, fps: f32, frame_clips: []Sprite_Sheet_Clip) -> Sprite_Sheet_Clip
+animation_get_frame_sprite_clip_id :: proc(t, fps: f32, frame_clips: []Sprite_Clip_Id) -> Sprite_Clip_Id
 {
 	frame_index := animation_get_current_frame(t, fps, len(frame_clips))
 	frame_clip := frame_clips[frame_index]
