@@ -776,20 +776,8 @@ root_state_game :: proc()
 			}
 		}
 
-		{ // frogger get points for moving up
-			point_value : int = 10
-			should_award_points := gmem.frogger_pos.y <= gmem.score_frogger_max_y_tracker
-			if should_award_points
-			{
-				gmem.score_frogger_max_y_tracker -= 1
-				gmem.score += point_value
-			}
-		}
-
-
-		should_process_lily_movement := !gmem.is_lily_on_frogger
-		
-		if should_process_lily_movement 
+		should_update_lily := !gmem.is_lily_on_frogger
+		if should_update_lily 
 		{ 
 			entity_that_lily_is_on := entities[lily_logs_to_spawn_on[lily_log_to_spawn_on_index]]
 
@@ -843,7 +831,6 @@ root_state_game :: proc()
 		}
 
 		should_check_for_lily_frogger_collision := !gmem.is_lily_on_frogger
-
 		if should_check_for_lily_frogger_collision
 		{
 			frogger_center_pos    := gmem.frogger_pos + 0.5
@@ -863,9 +850,8 @@ root_state_game :: proc()
 
 		}
 		
-
-		should_process_frogger_lerp_timer := !timer_is_complete(gmem.frogger_move_lerp_timer)
-		if should_process_frogger_lerp_timer 
+		should_move_frogger := timer_is_playing(gmem.frogger_move_lerp_timer)
+		if should_move_frogger 
 		{
 			timer_advance(&gmem.frogger_move_lerp_timer, frame_time)
 			t := timer_percentage(gmem.frogger_move_lerp_timer)
@@ -874,9 +860,8 @@ root_state_game :: proc()
 			gmem.frogger_pos.y = (1.0 - t) * gmem.frogger_move_lerp_start_pos.y + t * gmem.frogger_move_lerp_end_pos.y
 		}
 
-
-		should_process_lily_lerp_timer := !timer_is_complete(lily_lerp_timer)
-		if should_process_lily_lerp_timer
+		should_move_lily := timer_is_playing(lily_lerp_timer)
+		if should_move_lily
 		{
 			timer_advance(&lily_lerp_timer, frame_time)
 			t := timer_percentage(lily_lerp_timer)
@@ -885,7 +870,7 @@ root_state_game :: proc()
 		}
 
 
-		{
+		{ // update timers
 			timer_advance(&frogger_anim_timer, frame_time)
 			timer_advance(&gmem.timer_is_active_score_100, frame_time)
 			timer_advance(&gmem.timer_is_active_score_200, frame_time)
@@ -932,9 +917,7 @@ root_state_game :: proc()
 			}
 		}
 
-
 		move_entities_and_wrap(entities, frame_time)
-
 
 		should_process_moving_frogger_with_intersecting_entities := !animation_timer_is_playing(gmem.frogger_is_dying_timer) 
 		if should_process_moving_frogger_with_intersecting_entities
@@ -942,9 +925,17 @@ root_state_game :: proc()
 			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, entities, frame_time)
 		}
 
+		{ // frogger get points for moving up
+			point_value : int = 10
+			should_award_points := gmem.frogger_pos.y <= gmem.score_frogger_max_y_tracker
+			if should_award_points
+			{
+				gmem.score_frogger_max_y_tracker -= 1
+				gmem.score += point_value
+			}
+		}
 
 		should_check_for_win_condtions := !animation_timer_is_playing(gmem.frogger_is_dying_timer) && !timer_is_playing(gmem.level_end_timer)
-		
 		if should_check_for_win_condtions 
 		{
 			for lilypad, i in lilypads 
@@ -1007,22 +998,19 @@ root_state_game :: proc()
 			}
 		}
 
-		{ // level end timer
-			if !timer_is_complete(gmem.level_end_timer)
+
+		if timer_is_playing(gmem.level_end_timer)
+		{
+			timer_advance(&gmem.level_end_timer, frame_time)
+			if timer_is_complete(gmem.level_end_timer)
 			{
-				timer_advance(&gmem.level_end_timer, frame_time)
-				if timer_is_complete(gmem.level_end_timer)
+				for &present in gmem.is_frog_on_lilypads
 				{
-					for &present in gmem.is_frog_on_lilypads
-					{
-						present = false
-					}
+					present = false
 				}
 			}
-			
 		}
-
-
+		
 		should_check_for_frogger_is_killed := !animation_timer_is_playing(gmem.frogger_is_dying_timer)  && !gmem.dbg_is_frogger_unkillable
 		if should_check_for_frogger_is_killed 
 		{
@@ -1162,7 +1150,6 @@ root_state_game :: proc()
 		rl.BeginTextureMode(gmem.game_render_target)
 		defer rl.EndTextureMode()
 
-
 		rl.ClearBackground(rl.LIGHTGRAY) 
 
 		{ // draw background
@@ -1171,7 +1158,7 @@ root_state_game :: proc()
 		}
 
 
-		{ // draw obstacles
+		{ // draw entities
 			for entity, i in entities 
 			{
 				switch sd in entity.sprite_data
@@ -1301,8 +1288,6 @@ root_state_game :: proc()
 		{	
 			frogger_rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
 			rlgrid.draw_rectangle_lines_on_grid(frogger_rectangle, 4, rl.GREEN, global_grid_cell_size)
-
-			// TODO(jblat): draw the rest of the stuff like logs and whatnot
 		}
 
 		
@@ -1355,8 +1340,8 @@ root_state_main_menu :: proc()
 	credits_centered_pos.y += 0.3
 	rlgrid.draw_text_on_grid_centered(gmem.font, "code by john blat", credits_centered_pos, 0.3, 0, rl.WHITE, global_grid_cell_size)
 
-	credits_centered_pos.y += 0.3
-	rlgrid.draw_text_on_grid_centered(gmem.font, "thanks... kate, felix, karl, and the handmade community", credits_centered_pos, 0.2, 0, rl.GOLD, global_grid_cell_size)
+	// credits_centered_pos.y += 0.3
+	// rlgrid.draw_text_on_grid_centered(gmem.font, "thanks... karl zylinski, raysan, and handmade network", credits_centered_pos, 0.2, 0, rl.GOLD, global_grid_cell_size)
 }
 
 
