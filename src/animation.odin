@@ -30,3 +30,10 @@ animation_get_frame_sprite_clip :: proc(t, fps: f32, frame_clips: []rl.Rectangle
 	return frame_clip_rectangle
 }
 
+
+animation_get_frame_sprite_clip_id :: proc(t, fps: f32, frame_clips: []Sprite_Sheet_Clip) -> Sprite_Sheet_Clip
+{
+	frame_index := animation_get_current_frame(t, fps, len(frame_clips))
+	frame_clip := frame_clips[frame_index]
+	return frame_clip
+}

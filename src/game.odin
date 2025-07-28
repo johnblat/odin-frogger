@@ -34,6 +34,7 @@ Sprite_Data :: union {
 	Sprite_Sheet_Clip,
 	Regular_Turtle_Animation,
 	Diving_Turtle_Animation,
+	Animation_Id,
 }
 
 Regular_Turtle_Animation :: struct {}
@@ -316,13 +317,13 @@ entities_level_2 := [?]Entity {
 	{ rectangle = {10, 13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
 	{ rectangle = {6,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
 	{ rectangle = {2,  13, 1, 1},  speed = -1  ,warp_boundary_extension = 0,   sprite_data = .Taxi,                                   collision_behavior = .Kill_Frogger},
-	{ rectangle = {0,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {6,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {12, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {18, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,   sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
-	{ rectangle = {23, 3, 3, 1},   speed = 1.2, warp_boundary_extension = 11,   sprite_data = .Alligator_Mouth_Closed,                     collision_behavior  = .Move_Frogger},
-	{ rectangle = {0,  5, 6, 1},   speed = 4, warp_boundary_extension =  12,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},
-	{ rectangle = {16,  5, 6, 1},   speed = 4, warp_boundary_extension = 12,   sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},		
+	{ rectangle = {0,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {6,  3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {12, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {18, 3, 4, 1},   speed = 1.2, warp_boundary_extension = 11,  sprite_data = .Medium_Log,                             collision_behavior = .Move_Frogger},
+	{ rectangle = {24, 3, 3, 1},   speed = 1.2, warp_boundary_extension = 12,  sprite_data = Animation_Id.Alligator,                  collision_behavior = .Move_Frogger},
+	{ rectangle = {0,  5, 6, 1},   speed = 4,   warp_boundary_extension = 12, sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},
+	{ rectangle = {16,  5, 6, 1},  speed = 4,   warp_boundary_extension = 12,  sprite_data = .Long_Log,                               collision_behavior = .Move_Frogger},		
 	{ rectangle = {0,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
 	{ rectangle = {5,  6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
 	{ rectangle = {10, 6, 3, 1},   speed = 0.8, warp_boundary_extension = 1,   sprite_data = .Short_Log,                              collision_behavior = .Move_Frogger},
@@ -351,7 +352,34 @@ entities_level_2 := [?]Entity {
 animation_alligator_fps : f32 = 3
 animation_timer_alligator : Animation_Timer = {t = 0, playing = true, loop = true}
 animation_frames_alligator := [?]Sprite_Sheet_Clip{ .Alligator_Mouth_Closed, .Alligator_Mouth_Open }
-alligator_hit_box_relative_mouth_open := rl.Rectangle{2, 1, 1, 1}
+alligator_hit_box_relative_mouth_open := rl.Rectangle{2, 0, 1, 1}
+
+Animation_Id :: enum {
+	Alligator,
+	// Regular_Turtle,
+	// Diving_Turtle_0,
+	// Diving_Turtle_1,
+	// Frogger_Dying_Hit,
+	// Frogger_Dying_Drown,
+}
+
+
+animation_frames := [Animation_Id][]Sprite_Sheet_Clip {
+	.Alligator = animation_frames_alligator[:],
+	// .Regular_Turtle = 
+}
+
+animation_timers := [Animation_Id]Animation_Timer {
+	.Alligator = animation_timer_alligator
+}
+
+animation_fps_list := [Animation_Id]f32 {
+	.Alligator = 1
+}
+
+
+
+
 
 
 regular_turtles_anim_fps : f32 = 3
@@ -622,7 +650,12 @@ game_update :: proc()
 	if rl.IsKeyPressed(.BACKSPACE)
 	{
 		gmem.pause = !gmem.pause
+	}
 
+	skip_next_frame := false
+	if rl.IsKeyPressed(.RIGHT)
+	{	
+		skip_next_frame = true
 	}
 
 	frame_time_uncapped := rl.GetFrameTime()
@@ -648,11 +681,16 @@ game_update :: proc()
 	river := rl.Rectangle{0, 3, 14, 5}
 	riverbed := rl.Rectangle{0, 1, 14,2}
 
+	should_run_simulation := true
+	if gmem.pause && !skip_next_frame
+	{
+		should_run_simulation = false
+	}
 
-	if !gmem.pause 
+	if should_run_simulation
 	{	
 
-		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.frogger_is_dying_timer) && timer_is_complete(gmem.level_end_timer)
+		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.frogger_is_dying_timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -835,6 +873,10 @@ game_update :: proc()
 			timer_advance(&frogger_anim_timer, frame_time)
 			timer_advance(&gmem.timer_is_active_score_100, frame_time)
 			timer_advance(&gmem.timer_is_active_score_200, frame_time)
+			for &animation_timer, id in animation_timers
+			{
+				animation_timer_advance(&animation_timer, len(animation_frames[id]), animation_fps_list[id], frame_time)
+			}
 		}
 
 
@@ -1032,19 +1074,40 @@ game_update :: proc()
 				}
 			}
 
-			for turtle in entities
+			for entity in entities
 			{
-				#partial switch a in turtle.sprite_data
+				#partial switch sd in entity.sprite_data
 				{
 					case Diving_Turtle_Animation:
 					{
-						is_frogger_center_pos_inside_turtle_rectangle := rl.CheckCollisionPointRec(frogger_center_pos,  turtle.rectangle)
-						anim_timer := diving_turtles_anim_timers[a.timer_id]
+						is_frogger_center_pos_inside_turtle_rectangle := rl.CheckCollisionPointRec(frogger_center_pos,  entity.rectangle)
+						anim_timer := diving_turtles_anim_timers[sd.timer_id]
 						current_diving_turtle_frame := animation_get_current_frame(anim_timer, diving_turtles_anim_fps, len(diving_turtle_anim_frames))
 						is_turtle_above_water := diving_turtle_underwater_frame != current_diving_turtle_frame
 						if is_frogger_center_pos_inside_turtle_rectangle && !is_turtle_above_water
 						{
 							is_frogger_on_safe_entity = false
+						}
+					}
+					case Animation_Id:
+					{
+						if sd == .Alligator
+						{
+							clip := animation_get_frame_sprite_clip_id(animation_timers[sd].t, animation_fps_list[sd], animation_frames[sd])
+							if clip == .Alligator_Mouth_Open
+							{
+								hit_box := alligator_hit_box_relative_mouth_open
+								hit_box.x += entity.rectangle.x
+								hit_box.y += entity.rectangle.y
+
+								frogger_center_pos := gmem.frogger_pos + 0.5
+								did_frogger_collide_with_hitbox := rl.CheckCollisionPointRec(frogger_center_pos, hit_box)
+								if did_frogger_collide_with_hitbox
+								{
+									frogger_is_dying_animation_frames = frogger_is_dying_splat_animation_frames[:]
+									frogger_start_dying()
+								}
+							}
 						}
 					}
 				}
@@ -1058,7 +1121,6 @@ game_update :: proc()
 				frogger_is_dying_animation_frames = frogger_is_dying_ripple_animation_frames[:]
 				frogger_start_dying()
 			}
-
 		}	
 	}
 
@@ -1121,6 +1183,14 @@ game_update :: proc()
 						anim_timer := diving_turtles_anim_timers[sd.timer_id]
 						diving_turtles_current_frame_sprite_sheet_clilp_rectangle := animation_get_frame_sprite_clip(anim_timer, diving_turtles_anim_fps, diving_turtle_anim_frames[:])
 						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, diving_turtles_current_frame_sprite_sheet_clilp_rectangle,  global_sprite_sheet_cell_size, entity.rectangle, global_grid_cell_size, 0)	
+					}
+					case Animation_Id:
+					{
+						animation_timer := animation_timers[sd]
+						animation_frames := animation_frames[sd]
+						animation_fps := animation_fps_list[sd]
+						clip := animation_get_frame_sprite_clip_id(animation_timer.t, animation_fps, animation_frames)
+						draw_sprite_sheet_clip_on_grid(clip, entity.rectangle, global_grid_cell_size, 0)
 					}
 				}
 			}
