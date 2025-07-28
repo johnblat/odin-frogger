@@ -98,11 +98,16 @@ animation_timer_advance :: proc(animation_timer: ^Animation_Timer, number_of_fra
 	}
 	duration := animation_get_duration(fps, number_of_frames)
 	animation_timer.t += dt
-	if animation_timer.t > duration && animation_timer.loop
-	{
-		animation_timer.t = 0
-	}
-	else if animation_timer.t > duration
+	// if animation_timer.t > duration && animation_timer.loop
+	// {
+	// 	overshoot := animation_timer.t - duration
+	// 	animation_timer.t = overshoot
+	// }
+	// else if animation_timer.t > duration
+	// {
+	// 	animation_timer.playing = false
+	// }
+	if animation_timer.t > duration && !animation_timer.loop
 	{
 		animation_timer.playing = false
 	}
