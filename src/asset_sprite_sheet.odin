@@ -8,7 +8,7 @@ bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_mod
 // bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_colton.png")
 
 
-Sprite_Clip_Id ::  enum {
+Sprite_Clip_Name ::  enum {
 	Truck,
 	Racecar,
 	Purple_Car,
@@ -52,7 +52,7 @@ Sprite_Clip_Id ::  enum {
 }
 
 
-global_sprite_sheet_clips := [Sprite_Clip_Id]rl.Rectangle {
+global_sprite_sheet_clips := [Sprite_Clip_Name]rl.Rectangle {
 	.Truck                        = {5, 0, 2, 1},	
 	.Racecar                      = {8, 0, 1, 1},
 	.Purple_Car                   = {7, 0, 1, 1},
@@ -95,7 +95,7 @@ global_sprite_sheet_clips := [Sprite_Clip_Id]rl.Rectangle {
 	.Empty                        = {0, 0, 0, 0},
 }
 
-draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Id, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32 )
+draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32 )
 {
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
 	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, dst_grid_cell_size, rotation)

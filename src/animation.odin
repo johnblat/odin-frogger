@@ -26,7 +26,7 @@ animation_get_frame_sprite_clip :: proc(t, fps: f32, frame_clips: []rl.Rectangle
 }
 
 
-animation_get_frame_sprite_clip_id :: proc(t, fps: f32, frame_clips: []Sprite_Clip_Id) -> Sprite_Clip_Id
+animation_get_frame_sprite_clip_id :: proc(t, fps: f32, frame_clips: []Sprite_Clip_Name) -> Sprite_Clip_Name
 {
 	frame_index := animation_get_current_frame(t, fps, len(frame_clips))
 	frame_clip := frame_clips[frame_index]

@@ -31,7 +31,7 @@ Window_Save_Data :: struct
 
 
 Sprite_Data :: union {
-	Sprite_Clip_Id,
+	Sprite_Clip_Name,
 	Animation_Player_Name,
 }
 
@@ -45,11 +45,11 @@ Collision_Behavior :: enum {
 
 Entity :: struct
 {
-	rectangle : rl.Rectangle,
-	speed     : f32,
-	warp_boundary_extension : f32,
-	sprite_data: Sprite_Data,
-	collision_behavior: Collision_Behavior,
+	rectangle : rl.Rectangle, // what is the hitbox? and where should we draw the entity?
+	speed     : f32, // how fast does the entity move
+	warp_boundary_extension : f32, // how far beyond the edges of the map should this entity warp to the other side?
+	sprite_data: Sprite_Data, // either a single sprite or an animated sprite
+	collision_behavior: Collision_Behavior, // what should this entity do to frogger?
 }
 
 
@@ -60,7 +60,10 @@ Root_State :: enum {
 }
 
 
-Game_Memory :: struct
+// This struct contains all data we want to preserve on hot-reloads
+// a hot reload is compiling the game while it is running so we dont have to close and restart the game
+// each time a change is made to the code
+Game_Memory :: struct 
 {	
 	root_state : Root_State,
 
@@ -108,11 +111,6 @@ Game_Memory :: struct
 
 	pos_score_100: [2]f32,
 	pos_score_200: [2]f32,
-
-	// entities
-	// entities_by_level :[][]Entity,
-
-	// entities :[]Entity,
 
 	pause : bool,
 
@@ -354,21 +352,21 @@ entities_level_2 := [?]Entity {
 
 animation_alligator_fps : f32 = 3
 animation_timer_alligator := Animation_Timer { t = 0, playing = true, loop = true }
-animation_frames_alligator := [?]Sprite_Clip_Id{ .Alligator_Mouth_Closed, .Alligator_Mouth_Open }
+animation_frames_alligator := [?]Sprite_Clip_Name{ .Alligator_Mouth_Closed, .Alligator_Mouth_Open }
 alligator_hit_box_relative_mouth_open := rl.Rectangle{2, 0, 1, 1}
 
 
-animation_frames_regular_turtles := [?]Sprite_Clip_Id{ .Turtle_Frame_0, .Turtle_Frame_1, .Turtle_Frame_2 }
+animation_frames_regular_turtles := [?]Sprite_Clip_Name{ .Turtle_Frame_0, .Turtle_Frame_1, .Turtle_Frame_2 }
 animation_fps_regular_turtles : f32 = 3
 animation_timer_regular_turtles := Animation_Timer { t = 0, playing = true, loop = true }
 
-animation_frames_diving_turtles := [?]Sprite_Clip_Id{
+animation_frames_diving_turtles := [?]Sprite_Clip_Name{
 	.Turtle_Frame_0, .Turtle_Frame_1, .Turtle_Frame_2, .Turtle_Frame_3, .Turtle_Frame_4, .Empty, .Turtle_Frame_4, .Turtle_Frame_3, 
 }
 animation_fps_diving_turtles : f32 = animation_fps_regular_turtles
 
 
-animation_frames_frogger_dying_hit := [?]Sprite_Clip_Id {
+animation_frames_frogger_dying_hit := [?]Sprite_Clip_Name {
 	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
 	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
 	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
@@ -380,7 +378,7 @@ animation_frames_frogger_dying_hit := [?]Sprite_Clip_Id {
 	.Empty,
 }
 
-animation_frames_frogger_dying_drown := [?]Sprite_Clip_Id {
+animation_frames_frogger_dying_drown := [?]Sprite_Clip_Name {
 	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
 	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
 	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
@@ -412,7 +410,7 @@ Animation_Player :: struct {
 	animation_name : Animation_Name,
 }
 
-animation_frames := [Animation_Name][]Sprite_Clip_Id {
+animation_frames := [Animation_Name][]Sprite_Clip_Name {
 	.Alligator = animation_frames_alligator[:],
 	.Regular_Turtle =  animation_frames_regular_turtles[:],
 	.Diving_Turtle = animation_frames_diving_turtles[:],
@@ -575,15 +573,6 @@ move_frogger_with_intersecting_entities :: proc(frogger_pos, frogger_lerp_end_po
 game_init :: proc()
 {
 
-	frogger_move_lerp_timer  := Timer {
-		amount = frogger_move_lerp_duration,
-		duration = frogger_move_lerp_duration,
-	}
-
-	frogger_move_lerp_start_pos : [2]f32
-	frogger_move_lerp_end_pos   : [2]f32
-
-
 	gmem = new(Game_Memory)
 
 	gmem.root_state = .Main_Menu
@@ -600,9 +589,10 @@ game_init :: proc()
 	gmem.dbg_is_frogger_unkillable = false
 
 	gmem.frogger_pos = [2]f32{7,14}
-	gmem.frogger_move_lerp_timer = frogger_move_lerp_timer
-	gmem.frogger_move_lerp_start_pos = frogger_move_lerp_start_pos
-	gmem.frogger_move_lerp_end_pos = frogger_move_lerp_end_pos
+	gmem.frogger_move_lerp_timer = Timer {
+		amount = frogger_move_lerp_duration,
+		duration = frogger_move_lerp_duration,
+	}
 
 	gmem.is_frog_on_lilypads = is_frogs_on_lilypad
 
@@ -627,8 +617,6 @@ game_init :: proc()
 
 	gmem.animation_player_frogger_is_dying = { timer = { t = 0, playing = false, loop = false }, animation_name = .Frogger_Dying_Hit }
 
-
-	// game_reset_entities(gmem)
 }
 
 
@@ -672,7 +660,7 @@ root_state_game :: proc()
 
 	frogger_start_pos := [2]f32{7,14}
 
-	frogger_anim_frames := [?]Sprite_Clip_Id{
+	frogger_anim_frames := [?]Sprite_Clip_Name{
 		.Frogger_Frame_1, .Frogger_Frame_2, .Frogger_Frame_1, .Frogger_Frame_0,
 	}
 
@@ -1088,7 +1076,7 @@ root_state_game :: proc()
 						{
 							is_frogger_center_pos_inside_turtle_rectangle := rl.CheckCollisionPointRec(frogger_center_pos,  entity.rectangle)
 							// clip := animation_get_frame_sprite_clip_id(animation_timers[sd].t, animation_fps_list[animation_id], animation_frames[animation_id])
-							diving_turtles_underwater_clip_id := Sprite_Clip_Id.Empty
+							diving_turtles_underwater_clip_id := Sprite_Clip_Name.Empty
 							is_turtle_underwater := clip == diving_turtles_underwater_clip_id
 							
 							should_frogger_drown := is_frogger_center_pos_inside_turtle_rectangle && is_turtle_underwater
@@ -1151,7 +1139,7 @@ root_state_game :: proc()
 			{
 				switch sd in entity.sprite_data
 				{
-					case Sprite_Clip_Id:
+					case Sprite_Clip_Name:
 					{
 						draw_sprite_sheet_clip_on_grid(sd, entity.rectangle, global_grid_cell_size, 0)
 					}
@@ -1191,7 +1179,7 @@ root_state_game :: proc()
 		{ // draw frogger
 			anim_timer    : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? gmem.animation_player_frogger_is_dying.timer.t     : frogger_anim_timer.amount
 			anim_fps      : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_fps_list[gmem.animation_player_frogger_is_dying.animation_name]       : 12.0 
-			frames :[]Sprite_Clip_Id = animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_frames[gmem.animation_player_frogger_is_dying.animation_name ] : frogger_anim_frames[:]
+			frames :[]Sprite_Clip_Name = animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_frames[gmem.animation_player_frogger_is_dying.animation_name ] : frogger_anim_frames[:]
 			rotation : f32         = animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? 0                            : gmem.frogger_sprite_rotation
 			
 			clip := animation_get_frame_sprite_clip_id(anim_timer, anim_fps, frames)
