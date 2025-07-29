@@ -1315,8 +1315,6 @@ root_state_main_menu :: proc()
 	credits_centered_pos.y += 0.3
 	rlgrid.draw_text_on_grid_centered(gmem.font, "code by john blat", credits_centered_pos, 0.3, 0, rl.WHITE, global_grid_cell_size)
 
-	// credits_centered_pos.y += 0.3
-	// rlgrid.draw_text_on_grid_centered(gmem.font, "thanks... karl zylinski, raysan, and handmade network", credits_centered_pos, 0.2, 0, rl.GOLD, global_grid_cell_size)
 }
 
 
