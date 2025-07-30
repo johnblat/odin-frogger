@@ -125,6 +125,7 @@ Game_Memory :: struct
 
 gmem: ^Game_Memory
 
+music :rl.Sound
 
 lilypads := [5]rl.Rectangle{
 	{.5,   2, 1, 1},
@@ -244,6 +245,9 @@ game_init_platform :: proc()
 		rl.SetWindowSize(reset_window_width, reset_window_height)
 	}
 	
+	rl.InitAudioDevice()
+	music = rl.LoadSound("assets/froggerGameThemeOne.mp3")
+	rl.PlaySound(music)
 	rl.SetTargetFPS(60)
 }
 
@@ -756,54 +760,75 @@ root_state_game :: proc()
 		{ 
 			entity_that_lily_is_on := entities[lily_logs_to_spawn_on[lily_log_to_spawn_on_index]]
 
-			if timer_is_complete(lily_lerp_timer)
+			lily_lerp_timer_just_completed := false
+			if timer_is_playing(lily_lerp_timer)
 			{
-				timer_advance(&lily_wait_timer, frame_time)
-				if timer_is_complete(lily_wait_timer)
+				lily_lerp_timer_just_completed = !timer_advance(&lily_lerp_timer, frame_time)
+				t := timer_percentage(lily_lerp_timer)
+				t = min(t, 1.0)
+				lily_relative_log_pos_x = (1.0 - t) * lily_lerp_relative_log_start_x + t * lily_lerp_relative_log_end_x
+			}
+
+			if lily_lerp_timer_just_completed
+			{
+				timer_start(&lily_wait_timer)
+
+				right_edge_of_log_x := entity_that_lily_is_on.rectangle.width - 1
+				is_lily_on_right_edge_of_log := lily_relative_log_pos_x >= right_edge_of_log_x
+				
+				left_edge_of_log_x : f32 = 0
+				is_lily_on_left_edge_of_log := lily_relative_log_pos_x <= left_edge_of_log_x	
+
+				is_lily_on_edge_of_log :=  is_lily_on_right_edge_of_log || is_lily_on_left_edge_of_log
+				if is_lily_on_edge_of_log
 				{
-					move_amount_x : f32 = 0 
-
-					if lily_direction == .Right
-					{
-						edge_of_log_x := entity_that_lily_is_on.rectangle.width - 1
-						is_lily_on_right_edge_of_log := lily_relative_log_pos_x >= edge_of_log_x
-						if !is_lily_on_right_edge_of_log
-						{
-							move_amount_x = 1
-						}
-						else
-						{
-							lily_direction = .Left
-						}
-					}
-					else if lily_direction == .Left
-					{
-						edge_of_log_x : f32 = 0
-						is_lily_on_left_edge_of_log := lily_relative_log_pos_x <= edge_of_log_x
-						if !is_lily_on_left_edge_of_log
-						{
-							move_amount_x = -1
-						}
-						else
-						{
-							lily_direction = .Right
-						}
-					}
-
-					did_lily_move_amount_get_set := move_amount_x != 0
-
-					if did_lily_move_amount_get_set
-					{
-						lily_lerp_relative_log_start_x = lily_relative_log_pos_x
-						lily_lerp_relative_log_end_x = lily_lerp_relative_log_start_x + move_amount_x
-						timer_start(&lily_lerp_timer)
-
-					}
-
-					timer_start(&lily_wait_timer)
+					lily_direction = .Up
 				}
 			}
-		}
+
+			lily_wait_timer_just_completed := false
+			if timer_is_playing(lily_wait_timer)
+			{
+				lily_wait_timer_just_completed = !timer_advance(&lily_wait_timer, frame_time)
+			}
+
+			if lily_wait_timer_just_completed
+			{
+				move_amount_x := f32(0)
+
+				right_edge_of_log_x := entity_that_lily_is_on.rectangle.width - 1
+				is_lily_on_right_edge_of_log := lily_relative_log_pos_x >= right_edge_of_log_x
+				
+				left_edge_of_log_x : f32 = 0
+				is_lily_on_left_edge_of_log := lily_relative_log_pos_x <= left_edge_of_log_x
+
+				should_move_lily_right := lily_direction == .Right || is_lily_on_left_edge_of_log
+				if should_move_lily_right
+				{
+					lily_direction = .Right
+					move_amount_x = 1
+				}
+
+				should_move_lily_left := lily_direction == .Left || is_lily_on_right_edge_of_log
+				if should_move_lily_left
+				{
+					lily_direction = .Left
+					move_amount_x = -1
+				}
+
+				did_lily_move_amount_get_set := move_amount_x != 0
+
+				if did_lily_move_amount_get_set
+				{
+					lily_lerp_relative_log_start_x = lily_relative_log_pos_x
+					lily_lerp_relative_log_end_x = lily_lerp_relative_log_start_x + move_amount_x
+					timer_start(&lily_lerp_timer)
+				}
+			}
+
+
+		}	
+		
 
 		should_check_for_lily_frogger_collision := !gmem.is_lily_on_frogger
 		if should_check_for_lily_frogger_collision
@@ -833,15 +858,6 @@ root_state_game :: proc()
 			t = min(t, 1.0)
 			gmem.frogger_pos.x = (1.0 - t) * gmem.frogger_move_lerp_start_pos.x + t * gmem.frogger_move_lerp_end_pos.x
 			gmem.frogger_pos.y = (1.0 - t) * gmem.frogger_move_lerp_start_pos.y + t * gmem.frogger_move_lerp_end_pos.y
-		}
-
-		should_move_lily := timer_is_playing(lily_lerp_timer)
-		if should_move_lily
-		{
-			timer_advance(&lily_lerp_timer, frame_time)
-			t := timer_percentage(lily_lerp_timer)
-			t = min(t, 1.0)
-			lily_relative_log_pos_x = (1.0 - t) * lily_lerp_relative_log_start_x + t * lily_lerp_relative_log_end_x
 		}
 
 

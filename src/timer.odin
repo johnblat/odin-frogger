@@ -30,6 +30,7 @@ timer_is_playing :: proc(timer: Timer) -> bool
 timer_advance :: proc(timer: ^Timer, dt: f32) -> bool
 {
 	timer.amount += dt
+
 	timer.amount = min(timer.amount, timer.duration)
 	if timer.loop && timer_is_complete(timer^)
 	{
