@@ -689,31 +689,29 @@ root_state_game :: proc()
 			{
 				frogger_move_direction.x = -1
 				gmem.frogger_sprite_rotation  = 270
-				timer_start(&frogger_anim_timer)
 			}
 			else if rl.IsKeyPressed(.RIGHT) 
 			{
 				frogger_move_direction.x = 1
 				gmem.frogger_sprite_rotation = 90
-				timer_start(&frogger_anim_timer)
 			} 
 			else if rl.IsKeyPressed(.UP) 
 			{
 				frogger_move_direction.y = -1
 				gmem.frogger_sprite_rotation = 0
-				timer_start(&frogger_anim_timer)
 			} 
 			else if rl.IsKeyPressed(.DOWN) 
 			{
 				frogger_move_direction.y = 1
 				gmem.frogger_sprite_rotation = 180
-				timer_start(&frogger_anim_timer)
 			}
 
 			did_frogger_request_move := frogger_move_direction != [2]f32{0,0}
 
 			if did_frogger_request_move 
 			{
+				timer_start(&frogger_anim_timer)
+
 				frogger_next_pos := gmem.frogger_pos + frogger_move_direction
 				frogger_next_center_pos := frogger_next_pos + 0.5
 				
@@ -1320,7 +1318,7 @@ root_state_main_menu :: proc()
 	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 2}
 	rlgrid.draw_text_on_grid_centered(gmem.font, "FROGGER", title_centered_pos, 2, 0, rl.GREEN, global_grid_cell_size )
 	title_centered_pos.y += 2
-	rlgrid.draw_text_on_grid_centered(gmem.font, "PRO", title_centered_pos, 2, 0, rl.GREEN, global_grid_cell_size )
+	// rlgrid.draw_text_on_grid_centered(gmem.font, "PRO", title_centered_pos, 2, 0, rl.GREEN, global_grid_cell_size )
 
 	press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
 	rlgrid.draw_text_on_grid_centered(gmem.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_grid_cell_size)
@@ -1329,7 +1327,7 @@ root_state_main_menu :: proc()
 	rlgrid.draw_text_on_grid_centered(gmem.font, "a fanmade frogger remake", credits_centered_pos, 0.3, 0, rl.WHITE, global_grid_cell_size)
 
 	credits_centered_pos.y += 0.3
-	rlgrid.draw_text_on_grid_centered(gmem.font, "code by john blat", credits_centered_pos, 0.3, 0, rl.WHITE, global_grid_cell_size)
+	// rlgrid.draw_text_on_grid_centered(gmem.font, "code by john blat", credits_centered_pos, 0.3, 0, rl.WHITE, global_grid_cell_size)
 
 }
 
