@@ -95,8 +95,8 @@ global_sprite_sheet_clips := [Sprite_Clip_Name]rl.Rectangle {
 	.Empty                        = {0, 0, 0, 0},
 }
 
-draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32 )
+draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32, flip_x : bool = false, flip_y : bool = false )
 {
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
-	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, dst_grid_cell_size, rotation)
+	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, dst_grid_cell_size, rotation, flip_x, flip_y)
 }

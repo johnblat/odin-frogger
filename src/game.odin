@@ -407,12 +407,17 @@ animation_frames_frogger_dying_drown := [?]Sprite_Clip_Name {
 	.Empty,
 }
 
+animation_frames_snake := [?]Sprite_Clip_Name {
+	.Snake_Frame_0, .Snake_Frame_1, .Snake_Frame_2, .Snake_Frame_1
+}
+
 Animation_Name :: enum {
 	Alligator,
 	Regular_Turtle,
 	Diving_Turtle,
 	Frogger_Dying_Hit,
 	Frogger_Dying_Drown,
+	Snake,
 }
 
 Animation_Player_Name :: enum {
@@ -420,6 +425,8 @@ Animation_Player_Name :: enum {
 	Regular_Turtle,
 	Diving_Turtle_0,
 	Diving_Turtle_1,
+	Snake_0,
+	Snake_1,
 }
 
 Animation_Player :: struct {
@@ -434,14 +441,17 @@ animation_frames := [Animation_Name][]Sprite_Clip_Name {
 	.Diving_Turtle = animation_frames_diving_turtles[:],
 	.Frogger_Dying_Hit = animation_frames_frogger_dying_hit[:],
 	.Frogger_Dying_Drown = animation_frames_frogger_dying_drown[:],
+	.Snake = animation_frames_snake[:],
 }
 
 
 animation_players := [Animation_Player_Name]Animation_Player {
-	.Alligator       = { timer = { t = 0, playing = true, loop = true }, animation_name = .Alligator },
-	.Regular_Turtle  = { timer = { t = 0, playing = true, loop = true }, animation_name = .Regular_Turtle },
-	.Diving_Turtle_0 = { timer = { t = 0, playing = true, loop = true }, animation_name = .Diving_Turtle },
-	.Diving_Turtle_1 = { timer = { t = 1, playing = true, loop = true }, animation_name = .Diving_Turtle },
+	.Alligator       = { timer = { t = 0, playing = true, loop = true }, fps = 1, animation_name = .Alligator },
+	.Regular_Turtle  = { timer = { t = 0, playing = true, loop = true }, fps = 3, animation_name = .Regular_Turtle },
+	.Diving_Turtle_0 = { timer = { t = 0, playing = true, loop = true }, fps = 3, animation_name = .Diving_Turtle },
+	.Diving_Turtle_1 = { timer = { t = 1, playing = true, loop = true }, fps = 3, animation_name = .Diving_Turtle },
+	.Snake_0         = { timer = { t = 0, playing = true, loop = true }, fps = 3, animation_name = .Snake },
+	.Snake_1         = { timer = { t = 1, playing = true, loop = true }, fps = 3, animation_name = .Snake },
 }
 
 animation_player_frogger_is_dying :=  Animation_Player { timer = { t = 0, playing = false, loop = false }, animation_name = .Frogger_Dying_Hit }
@@ -452,6 +462,7 @@ animation_fps_list := [Animation_Name]f32 {
 	.Diving_Turtle = 3,
 	.Frogger_Dying_Hit = 12,
 	.Frogger_Dying_Drown = 12,
+	.Snake = 2,
 }
 
 frogger_anim_timer := Timer {
@@ -513,6 +524,25 @@ lily_logs_to_spawn_on := [?]int{30, 1, 3}
 lily_log_to_spawn_on_index : int = 0 // index into above array
 
 
+snakes := [?]Entity {
+	{ rectangle = {0, 8, 2, 1}, speed = 0.5, left_warp_location = 2, sprite_data = Animation_Player_Name.Snake_0 }
+}
+
+Snake_Mode :: enum
+{
+	On_Entity,
+	On_Median,
+}
+
+Snake_Behavior_State :: struct
+{
+	snake_mode : Snake_Mode,
+	on_entity_id : int,
+}
+
+snake_behaviors := [?]Snake_Behavior_State {
+	{ snake_mode = .On_Median, on_entity_id = 26 }
+}
 
 move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 {
@@ -996,6 +1026,55 @@ root_state_game :: proc()
 			}
 		}
 
+		{ // snakes
+			for &snake, i in snakes
+			{
+
+				left_turnaround_boundary := -2
+				right_turnaround_boundary := global_number_grid_cells_axis_x
+
+				if snake_behaviors[i].snake_mode == .On_Median
+				{
+					snake.rectangle.x += snake.speed * frame_time * gmem.dbg_speed_multiplier
+					if snake.rectangle.x > global_number_grid_cells_axis_x
+					{
+						snake.rectangle.x += 1
+						snake.speed = -snake.speed
+
+						// TODO(jblat): Make this more of a "chance" or random, or based off of counter
+						// switch mode
+						snake_behaviors[i].snake_mode = .On_Entity
+						snake.speed = 0.2
+						snake.rectangle.x = 0
+						snake.rectangle.y = 0
+					}
+					else if snake.rectangle.x < -2
+					{
+						snake.speed = -snake.speed
+					}
+				}
+				else if snake_behaviors[i].snake_mode == .On_Entity
+				{
+					entity_that_snake_is_on := entities[snake_behaviors[i].on_entity_id]
+
+					rel_left_turnaround_boundary : f32 = 0
+					rel_right_turnaround_boundary : f32 = entity_that_snake_is_on.rectangle.width - 2
+
+					snake.rectangle.x += snake.speed * frame_time * gmem.dbg_speed_multiplier
+					if snake.rectangle.x > rel_right_turnaround_boundary
+					{
+						snake.speed = -snake.speed
+					}
+					else if snake.rectangle.x < rel_left_turnaround_boundary
+					{
+						snake.speed = -snake.speed
+					}
+
+				}
+
+			}
+		}
+
 		should_check_for_win_condtions := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !timer_is_playing(gmem.level_end_timer)
 		if should_check_for_win_condtions 
 		{
@@ -1179,6 +1258,36 @@ root_state_game :: proc()
 			{
 				frogger_start_dying(.Frogger_Dying_Drown)
 			}
+
+			{ // snake kill
+				for snake, i in snakes
+				{
+					snake_relative_hitbox := rl.Rectangle{0, 0, 1, 1}
+					if snake.speed > 0
+					{
+						// flipped
+						snake_relative_hitbox = rl.Rectangle{1, 0, 1, 1}
+					}
+
+					snake_world_hitbox := snake_relative_hitbox
+					snake_world_hitbox.x += snake.rectangle.x
+					snake_world_hitbox.y += snake.rectangle.y
+
+					if snake_behaviors[i].snake_mode == .On_Entity
+					{
+						parent_rectangle := entities[snake_behaviors[i].on_entity_id].rectangle
+						snake_world_hitbox.x += parent_rectangle.x
+						snake_world_hitbox.y += parent_rectangle.y
+					}
+
+					is_frogger_intersecting_snake_hitbox := rl.CheckCollisionPointRec(frogger_center_pos, snake_world_hitbox)
+
+					if is_frogger_intersecting_snake_hitbox
+					{
+						frogger_start_dying(.Frogger_Dying_Hit)
+					}
+				}
+			}
 		}	
 	}
 
@@ -1245,7 +1354,33 @@ root_state_game :: proc()
 					}
 				}
 			}
+		}
 
+		{ // draw snakes
+			for snake, i in snakes
+			{
+				#partial switch sd in snake.sprite_data
+				{
+					case Animation_Player_Name:
+					{
+						r := snake.rectangle
+						if snake_behaviors[i].snake_mode == .On_Entity
+						{
+							parent_entity_rectangle := entities[snake_behaviors[i].on_entity_id].rectangle
+							r.x += parent_entity_rectangle.x
+							r.y += parent_entity_rectangle.y
+						}
+						flip_x := false
+						if snake.speed > 0
+						{
+							flip_x = true
+						}
+						animation_player := animation_players[sd]
+						clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_player.fps, animation_frames[animation_player.animation_name])
+						draw_sprite_sheet_clip_on_grid(clip, r, global_grid_cell_size, 0, flip_x, false)						
+					}
+				}
+			}
 		}
 
 

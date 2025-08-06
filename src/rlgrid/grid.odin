@@ -70,9 +70,18 @@ draw_sprite_sheet_clip_on_grid :: proc(sprite_sheet: rl.Texture2D, src_grid_pos,
  * - rotation: the rotation in degrees to rotate the sprite on the render target
  * 
  * **/
-draw_grid_texture_clip_on_grid :: proc(tex: rl.Texture2D, src_rectangle: rl.Rectangle, src_grid_cell_size: f32, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32) 
+draw_grid_texture_clip_on_grid :: proc(tex: rl.Texture2D, src_rectangle: rl.Rectangle, src_grid_cell_size: f32, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32, flip_x : bool = false, flip_y: bool = false) 
 {
 	src_rect := get_rectangle_on_grid(src_rectangle, src_grid_cell_size)
+	if flip_x
+	{
+		src_rect.width = -src_rect.width
+	}
+	else if flip_y
+	{
+		src_rect.height = -src_rect.height
+	}
+
 	dst_rect := get_rectangle_on_grid(dst_rectangle, dst_grid_cell_size)
 	rotation_origin := [2]f32{dst_rect.width / 2, dst_rect.height / 2}
 	dst_rect.x += rotation_origin.x
