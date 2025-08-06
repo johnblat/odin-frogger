@@ -86,10 +86,12 @@ Game_Memory :: struct
 	dbg_speed_multiplier: f32,
 	dbg_camera_offset_to_left: f32,
 	dbg_camera_zoom :f32,
-	
+
 	// GAME
 
 	animation_player_frogger_is_dying: Animation_Player,
+
+	countdown_timer_lose_life: f32,
 
 	level_current : int,
 
@@ -488,6 +490,8 @@ global_sprite_clip_score_100 := rl.Rectangle {0, 6, 1, 1}
 global_sprite_clip_score_200 := rl.Rectangle {1, 6, 1, 1}
 
 
+
+
 Direction :: enum {
 	Up, Down, Left, Right
 }
@@ -615,7 +619,7 @@ move_frogger_with_intersecting_entities :: proc(frogger_pos, frogger_lerp_end_po
 // }
 
 
-
+global_countdown_timer_lose_life_duration : f32 = 30.0
 
 @(export)
 game_init :: proc()
@@ -648,6 +652,7 @@ game_init :: proc()
 	image_background   := rl.LoadImageFromMemory(".png", &bytes_image_data_background[0], i32(len(bytes_image_data_background)))
 
 	gmem.texture_sprite_sheet = rl.LoadTextureFromImage(image_sprite_sheet)
+	rl.SetTextureFilter(gmem.texture_sprite_sheet, rl.TextureFilter.POINT)
 	gmem.texture_background   = rl.LoadTextureFromImage(image_background)
 
 	gmem.font = rl.LoadFontFromMemory(".otf", &bytes_font_data[0], i32(len(bytes_font_data)), 256, nil, 0)
@@ -666,6 +671,9 @@ game_init :: proc()
 	gmem.animation_player_frogger_is_dying = { timer = { t = 0, playing = false, loop = false }, animation_name = .Frogger_Dying_Hit }
 
 	gmem.dbg_camera_zoom = 1.0
+
+	gmem.countdown_timer_lose_life = global_countdown_timer_lose_life_duration
+
 }
 
 
@@ -675,6 +683,7 @@ frogger_reset :: proc(pos: [2]f32)
 	gmem.score_frogger_max_y_tracker = pos.y - 1
 	gmem.is_lily_on_frogger = false
 	timer_stop(&gmem.frogger_move_lerp_timer)
+	gmem.countdown_timer_lose_life = global_countdown_timer_lose_life_duration
 }
 
 
@@ -1150,6 +1159,12 @@ root_state_game :: proc()
 				}
 			}
 		}
+
+		if !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) 
+		{
+			gmem.countdown_timer_lose_life -= frame_time
+			gmem.countdown_timer_lose_life = max(0.0, gmem.countdown_timer_lose_life)
+		}
 		
 		should_check_for_frogger_is_killed := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)  && !gmem.dbg_is_frogger_unkillable
 		if should_check_for_frogger_is_killed 
@@ -1286,6 +1301,14 @@ root_state_game :: proc()
 					{
 						frogger_start_dying(.Frogger_Dying_Hit)
 					}
+				}
+			}
+
+			{ // countdown timer
+				is_countdown_complete := gmem.countdown_timer_lose_life <= 0.0 
+				if is_countdown_complete
+				{
+					frogger_start_dying(.Frogger_Dying_Hit)
 				}
 			}
 		}	
@@ -1513,7 +1536,17 @@ root_state_game :: proc()
 				text_get_ready : cstring = "get ready for next level!"
 				rlgrid.draw_text_on_grid_centered(gmem.font, text_get_ready, [2]f32{global_number_grid_cells_axis_x/2, 8}, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
 			}
-		}	
+		}
+
+		{ // countdown timer
+			max_rectangle_width : f32 = 7.5
+			percentage_complete := gmem.countdown_timer_lose_life / global_countdown_timer_lose_life_duration
+			rectangle_width := max_rectangle_width * percentage_complete
+
+			timer_rectangle := rl.Rectangle { global_number_grid_cells_axis_x - 2, global_number_grid_cells_axis_y - 0.5, rectangle_width, 0.5 }
+			rlgrid.draw_rectangle_on_grid_right_justified(timer_rectangle, rl.GREEN, global_grid_cell_size)
+		}
+
 		rl.EndMode2D()
 
 		rl.EndTextureMode()

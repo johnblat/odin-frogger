@@ -22,6 +22,14 @@ draw_rectangle_on_grid :: proc(rectangle: rl.Rectangle, color: rl.Color, cell_si
 	rl.DrawRectangleRec(render_rectangle, color)
 }
 
+draw_rectangle_on_grid_right_justified :: proc(rectangle: rl.Rectangle, color: rl.Color, cell_size: f32)
+{
+	justified_rectangle := rectangle
+	justified_rectangle.x -= rectangle.width
+	render_rectangle := get_rectangle_on_grid(justified_rectangle, cell_size)
+	rl.DrawRectangleRec(render_rectangle, color)
+}
+
 
 draw_rectangle_lines_on_grid :: proc(rectangle: rl.Rectangle, line_thick: f32, color: rl.Color, cell_size: f32)
 {

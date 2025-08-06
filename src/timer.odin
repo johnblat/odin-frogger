@@ -8,7 +8,6 @@ Timer :: struct
 }
 
 
-
 timer_is_complete :: proc(timer: Timer) -> bool
 {
 	if timer.amount >= timer.duration
