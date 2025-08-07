@@ -336,7 +336,6 @@ entities_level_2 := [?]Entity {
     { rectangle = {10, 13, 1, 1},  speed = -1  ,left_warp_location = 1,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
     { rectangle = {6,  13, 1, 1},  speed = -1  ,left_warp_location = 1,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
     { rectangle = {2,  13, 1, 1},  speed = -1  ,left_warp_location = 1,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-
     { rectangle = {0,  3, 4, 1},     speed = 1.2, left_warp_location = 15,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
     { rectangle = {6,  3, 4, 1},     speed = 1.2, left_warp_location = 15,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
     { rectangle = {12, 3, 4, 1},     speed = 1.2, left_warp_location = 15,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
@@ -529,7 +528,7 @@ lily_log_to_spawn_on_index : int = 0 // index into above array
 
 
 snakes := [?]Entity {
-	{ rectangle = {0, 8, 2, 1}, speed = 0.5, left_warp_location = 2, sprite_data = Animation_Player_Name.Snake_0 }
+	{ rectangle = {0, 22, 2, 1}, speed = 1, left_warp_location = 2, sprite_data = Animation_Player_Name.Snake_0 }
 }
 
 Snake_Mode :: enum
@@ -545,8 +544,18 @@ Snake_Behavior_State :: struct
 }
 
 snake_behaviors := [?]Snake_Behavior_State {
-	{ snake_mode = .On_Median, on_entity_id = 26 }
+	{ snake_mode = .On_Entity, on_entity_id = 26 }
 }
+
+
+lilypad_ids_crocodile := [?]int{4, 0, 3, 1, 2, 1, 3, 0}
+current_crocodile_lilypad_id_index := 0
+
+timer_crocodile_inactive := Timer { amount = 0, duration = 6.0 }
+timer_crocodile_peek     := Timer { amount = 2.0, duration = 2.0 }
+timer_crocodile_attack   := Timer { amount = 1.0, duration = 1.0 }
+
+
 
 move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 {
@@ -569,7 +578,7 @@ move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 		}
 		else if should_warp_to_left_side_of_screen 
 		{
-			overshoot : f32 = rectangle.x - warp_pos_on_right_side_x
+			overshoot : f32 = rectangle.x - warp_pos_on_right_side_x 
 			rectangle.x = -entity.left_warp_location + overshoot
 		}
 	}
@@ -1042,12 +1051,32 @@ root_state_game :: proc()
 				left_turnaround_boundary := -2
 				right_turnaround_boundary := global_number_grid_cells_axis_x
 
+				snake_world_rectangle := snake.rectangle
+
+				entity_that_snake_is_on := entities[snake_behaviors[i].on_entity_id]
+
+				if snake_behaviors[i].snake_mode == .On_Entity
+				{
+					snake_world_rectangle.x += entity_that_snake_is_on.rectangle.x
+					snake_world_rectangle.y += entity_that_snake_is_on.rectangle.y
+				}
+
+				snake_is_beyond_right_side_of_screen := snake_world_rectangle.x > global_number_grid_cells_axis_x
+				snake_is_beyond_left_side_of_screen := snake_world_rectangle.x <= -snake.rectangle.width
+
+				median_y : f32 = 8
+				frogger_is_on_or_below_median := gmem.frogger_pos.y >= median_y
+			
 				if snake_behaviors[i].snake_mode == .On_Median
 				{
 					snake.rectangle.x += snake.speed * frame_time * gmem.dbg_speed_multiplier
-					if snake.rectangle.x > global_number_grid_cells_axis_x
+					entity_that_snake_is_on_is_offscreen_and_has_room_for_snake := entity_that_snake_is_on.rectangle.x < -snake.rectangle.width
+					snake_is_offscreen := snake_is_beyond_left_side_of_screen || snake_is_beyond_right_side_of_screen
+
+					should_switch_to_on_entity_mode := entity_that_snake_is_on_is_offscreen_and_has_room_for_snake && !frogger_is_on_or_below_median && snake_is_offscreen
+
+					if should_switch_to_on_entity_mode
 					{
-						snake.rectangle.x += 1
 						snake.speed = -snake.speed
 
 						// TODO(jblat): Make this more of a "chance" or random, or based off of counter
@@ -1057,14 +1086,23 @@ root_state_game :: proc()
 						snake.rectangle.x = 0
 						snake.rectangle.y = 0
 					}
-					else if snake.rectangle.x < -2
-					{
-						snake.speed = -snake.speed
+					else
+					{	snake_is_moving_left := snake.speed < 0
+						should_turn_right := snake_is_moving_left && snake_is_beyond_left_side_of_screen
+						if should_turn_right
+						{
+							snake.speed = -snake.speed
+						}
+						should_turn_left := !snake_is_moving_left && snake_is_beyond_right_side_of_screen
+						if should_turn_left
+						{
+							snake.speed = -snake.speed
+						}
 					}
 				}
 				else if snake_behaviors[i].snake_mode == .On_Entity
 				{
-					entity_that_snake_is_on := entities[snake_behaviors[i].on_entity_id]
+					
 
 					rel_left_turnaround_boundary : f32 = 0
 					rel_right_turnaround_boundary : f32 = entity_that_snake_is_on.rectangle.width - 2
@@ -1077,12 +1115,82 @@ root_state_game :: proc()
 					else if snake.rectangle.x < rel_left_turnaround_boundary
 					{
 						snake.speed = -snake.speed
-					}
+					}					
+					
+					should_switch_to_snake_median_mode := frogger_is_on_or_below_median && snake_is_beyond_right_side_of_screen
+					if should_switch_to_snake_median_mode
+					{
+						snake_behaviors[i].snake_mode = .On_Median
+						frogger_is_closer_to_left_side_of_screen := gmem.frogger_pos.x <= global_number_grid_cells_axis_x / 2
+						snake.rectangle.y = median_y
+						if frogger_is_closer_to_left_side_of_screen
+						{
+							snake.rectangle.x = -snake.rectangle.width
+							snake.speed = 1
+						}
+						else
+						{	
+							snake.rectangle.x = global_number_grid_cells_axis_x + snake.rectangle.width
+							snake.speed = -1
+						}
+					} 
 
 				}
 
 			}
 		}
+
+		{ // crocodile timers
+			if timer_is_playing(timer_crocodile_inactive)
+			{
+				just_completed := !timer_advance(&timer_crocodile_inactive, frame_time)
+				if just_completed
+				{
+					timer_start(&timer_crocodile_peek)
+				}
+			}
+			else if timer_is_playing(timer_crocodile_peek)
+			{
+				just_completed := !timer_advance(&timer_crocodile_peek, frame_time)
+				if just_completed
+				{
+					timer_start(&timer_crocodile_attack)
+				}
+			}
+			else if timer_is_playing(timer_crocodile_attack)
+			{
+				just_completed := !timer_advance(&timer_crocodile_attack, frame_time)
+				if just_completed
+				{
+					timer_start(&timer_crocodile_inactive)
+					current_crocodile_lilypad_id_index += 1
+					should_wrap_index := current_crocodile_lilypad_id_index >= len(lilypad_ids_crocodile)
+					if should_wrap_index
+					{
+						current_crocodile_lilypad_id_index = 0
+					}
+				}
+			}
+		}
+
+		should_check_pre_win_condition_frogger_is_killed := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)  && !gmem.dbg_is_frogger_unkillable
+		if should_check_pre_win_condition_frogger_is_killed
+		{
+			{ // crocodile attack
+				if timer_is_playing(timer_crocodile_attack)
+				{
+					lilypad_id_crocodile_is_in := lilypad_ids_crocodile[current_crocodile_lilypad_id_index]
+					lilypad := lilypads[lilypad_id_crocodile_is_in]
+					frogger_center_pos := gmem.frogger_pos + 0.5
+					frogger_in_crocodile_mouth := rl.CheckCollisionPointRec(frogger_center_pos, lilypad)
+					if frogger_in_crocodile_mouth
+					{
+						frogger_start_dying(.Frogger_Dying_Hit)
+					}
+				}
+			}
+		}
+
 
 		should_check_for_win_condtions := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !timer_is_playing(gmem.level_end_timer)
 		if should_check_for_win_condtions 
@@ -1403,6 +1511,20 @@ root_state_game :: proc()
 						draw_sprite_sheet_clip_on_grid(clip, r, global_grid_cell_size, 0, flip_x, false)						
 					}
 				}
+			}
+		}
+
+		{ // draw crocodile
+			lilypad_rectangle := lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]] 
+			is_frog_here := gmem.is_frog_on_lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]]
+
+			if timer_is_playing(timer_crocodile_peek) && !is_frog_here
+			{
+				draw_sprite_sheet_clip_on_grid(.Crocodile_Head_Peek, lilypad_rectangle, global_grid_cell_size, 0)
+			}
+			else if timer_is_playing(timer_crocodile_attack) && !is_frog_here
+			{
+				draw_sprite_sheet_clip_on_grid(.Crocodile_Head_Attack, lilypad_rectangle, global_grid_cell_size, 0)
 			}
 		}
 

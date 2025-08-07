@@ -5,7 +5,8 @@ import "core:fmt"
 import "core:os"
 import "core:os/os2"
 import "core:log"
-
+import "core:mem"
+import "core:c/libc"
 
 Game_API :: struct
 {
@@ -109,6 +110,23 @@ unload_game_api :: proc(api: ^Game_API)
 main :: proc()
 {
 	context.logger = log.create_console_logger()
+
+	when ODIN_DEBUG {
+		track: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&track, context.allocator)
+		context.allocator = mem.tracking_allocator(&track)
+
+		defer {
+			if len(track.allocation_map) > 0 {
+				fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
+				for _, entry in track.allocation_map {
+					fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+				}
+			}
+			mem.tracking_allocator_destroy(&track)
+			libc.getchar()
+		}
+	}
 
 	game_api, game_api_loaded_ok := load_game_api(0)
 

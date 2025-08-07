@@ -48,6 +48,8 @@ Sprite_Clip_Name ::  enum {
 	Frogger_Dying_Ripple_Frame_1,
 	Frogger_Dying_Ripple_Frame_2,
 	Skull_And_Crossbones,
+	Crocodile_Head_Peek,
+	Crocodile_Head_Attack,
 	Empty,         
 }
 
@@ -92,6 +94,8 @@ global_sprite_sheet_clips := [Sprite_Clip_Name]rl.Rectangle {
 	.Frogger_Dying_Ripple_Frame_1 = {2, 3, 1, 1},
 	.Frogger_Dying_Ripple_Frame_2 = {3, 3, 1, 1},
 	.Skull_And_Crossbones         = {0, 3, 1, 1},
+	.Crocodile_Head_Peek          = {5, 6, 1, 1},
+	.Crocodile_Head_Attack        = {6, 6, 1, 1},
 	.Empty                        = {0, 0, 0, 0},
 }
 
