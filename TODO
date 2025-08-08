@@ -1,28 +1,16 @@
 TODO
-[ ] Make propper conditional death animations
-	[ ] When frogger drown, play drown animation
-	[x] When frogger hit by car, play car hit animation
-	[ ] When frogger hit riverbed, play riverbed animation
-[ ] When get all frogs home, play level clear animation where all frogs open mouth smile and reset level
-[ ] Bug timer
-	- 4 seconds
-[ ] Purple frog timer
-[ ] Make sure correct number and positioning of level 1 obstacles
-
-=== COLTON TASKS
-# Debug UI Enhancements:
-	- Frogger unkillable symbol:
-		- Objective: Display some new sprite on the screen that indicates that frogger is currently unkillable, which is a toggle used for debugging. The new sprite is to be included in the `assets/frogger_sprite_sheet_modified.png` file. No other changes to the sprite sheet should be made aside from adding one new sprite. The size of the sprite should be the same as other sprites.
-		- Context: 
-			- In the frogger game, sometimes it is easier to test gameplay by making frogger unkillable so he can jump anywhere without worrying about dying
-			- I created a hotkey that will make frogger unkillable (F2), however there is no visual indicator that frogger is unkillable.
-			- CTRL + F for "F2" should show u where in the code this is getting toggled
-		- What to do:
-			- In assets/frogger_sprite_sheet_modified.png, create a new sprite that will be a symbol displayed on screen to represent frogger is unkillable. (we'll refer to it as the Unkillable Symbol)
-				- One example of how this _can_ be accomplished is copy/pasting the skull and crossbones somewhere else in the spritesheet and put a red X or red "NO symbol" (The circle with diaganol line thru it) on top of it. You can be more creative if you want.
-			- When frogger unkillable is toggled, make it so that the Unkillable Symbol appears somewhere on the screen in an unobstrusive place
-				- The toggle variable is called `dbg_is_frogger_unkillable`
-					- CTRL + F for "dbg_is_frogger_unkillable" to see where it is created and how it is used currently
-					- Note: `dbg_` used to prefix variables that are really only used for debugging purposes
-
-					
+[x] Get web build working
+[~] Have multiple levels configured
+	[x] level 1
+	[x] level 2
+	[x] level 3
+	[] level 4
+	[] level 5
+[ ] happy frog animation once level is complete
+[ ] display time after reaching end
+[ ] frogger has lives
+  [ ] 3 lives
+  [ ] extra lives once reach extra life score
+  [ ] go back to menu when frogger dies
+[ ] display game over text when frogger dies
+[ ] points correction - the points awarded are probably wrong. fix it.

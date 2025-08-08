@@ -124,7 +124,7 @@ main :: proc()
 				}
 			}
 			mem.tracking_allocator_destroy(&track)
-			libc.getchar()
+			// libc.getchar()
 		}
 	}
 
