@@ -1183,22 +1183,27 @@ root_state_game :: proc()
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
-			if rl.IsKeyPressed(.LEFT) 
+			is_input_left := rl.IsKeyPressed(.LEFT) || rl.IsGamepadButtonPressed(0, .LEFT_FACE_LEFT)
+			is_input_right := rl.IsKeyPressed(.RIGHT) || rl.IsGamepadButtonPressed(0, .LEFT_FACE_RIGHT)
+			is_input_up := rl.IsKeyPressed(.UP) || rl.IsGamepadButtonPressed(0, .LEFT_FACE_UP)
+			is_input_down := rl.IsKeyPressed(.DOWN) || rl.IsGamepadButtonPressed(0, .LEFT_FACE_DOWN)
+
+			if is_input_left
 			{
 				frogger_move_direction.x = -1
 				gmem.frogger_sprite_rotation  = 270
 			}
-			else if rl.IsKeyPressed(.RIGHT) 
+			else if is_input_right
 			{
 				frogger_move_direction.x = 1
 				gmem.frogger_sprite_rotation = 90
 			} 
-			else if rl.IsKeyPressed(.UP) 
+			else if is_input_up
 			{
 				frogger_move_direction.y = -1
 				gmem.frogger_sprite_rotation = 0
 			} 
-			else if rl.IsKeyPressed(.DOWN) 
+			else if is_input_down
 			{
 				frogger_move_direction.y = 1
 				gmem.frogger_sprite_rotation = 180
@@ -2173,7 +2178,8 @@ root_state_game :: proc()
 
 root_state_main_menu :: proc()
 {
-	if rl.IsKeyPressed(.ENTER)
+	is_input_start := rl.IsKeyPressed(.ENTER) || rl.IsGamepadButtonPressed(0, .MIDDLE) || rl.IsGamepadButtonPressed(0, .MIDDLE_LEFT) || rl.IsGamepadButtonPressed(0, .MIDDLE_RIGHT) || rl.IsGamepadButtonPressed(0, .RIGHT_FACE_DOWN)  
+	if is_input_start
 	{
 		gmem.root_state = .Game
 	}
