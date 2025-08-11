@@ -43,11 +43,18 @@ Collision_Behavior :: enum {
 }
 
 
+Entity_Behavior :: enum {
+	Row_Obstacle,
+	Snake,
+	Otter,
+	Alligator,
+}
+
+
 Entity :: struct
 {
 	rectangle : rl.Rectangle, // what is the hitbox? and where should we draw the entity?
 	speed     : f32, // how fast does the entity move
-	left_warp_location : f32, // how far beyond the edges of the map should this entity warp to the other side?
 	sprite_data: Sprite_Data, // either a single sprite or an animated sprite
 	collision_behavior: Collision_Behavior, // what should this entity do to frogger?
 	snake_behavior: Snake_Behavior_State, // only used if a snake
@@ -125,7 +132,7 @@ Game_Memory :: struct
 
 	pause : bool,
 
-	lives: int,
+	lives: u32,
 	counter_cycle: int,
 	counter_level: int,
 
@@ -133,8 +140,15 @@ Game_Memory :: struct
 	shader_pixel_filter: rl.Shader,
 
 	level_index: u32,
+
+	last_cycle_completion_in_seconds : i32,
+	countdown_timer_display_last_cycle_completion: f32,
+
+	countdown_timer_game_over_display: f32,
 }
 
+global_countdown_timer_duration_display_last_cycle_completion : f32 = 4.0
+global_countdown_timer_game_over_display: f32 = 3.0
 
 gmem: ^Game_Memory
 
@@ -848,7 +862,7 @@ lily_lerp_timer := Timer {
 lily_lerp_relative_log_start_x : f32 = 0
 lily_lerp_relative_log_end_x   : f32 = 0 
 
-lily_logs_to_spawn_on := [?]int{15, 17, 14, 0, 0}
+lily_logs_to_spawn_on := [?]int{15, 17, 14, 12, 11}
 
 
 Snake_Mode :: enum
@@ -874,14 +888,14 @@ snakes_by_level := [?][]Entity {
 snakes_level_1 := [?]Entity{}
 snakes_level_2 := [?]Entity{}
 snakes_level_3 := [?]Entity{
-	{ rectangle = {-2, 8, 2, 1}, speed = 1, left_warp_location = 2, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 12 } },
+	{ rectangle = {-2, 8, 2, 1}, speed = 1, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 12 } },
 }
 snakes_level_4 := [?]Entity {
-	{ rectangle = {-2, 8, 2, 1}, speed = 1.8, left_warp_location = 2, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 10 }, },
+	{ rectangle = {-2, 8, 2, 1}, speed = 1.8, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 10 }, },
 }
 snakes_level_5 := [?]Entity {
-	{ rectangle = {-2, 8, 2, 1}, speed = 1, left_warp_location = 2, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 8 }, },
-	{ rectangle = {global_number_grid_cells_axis_x, 8, 2, 1}, speed = -1, left_warp_location = 2, sprite_data = Animation_Player_Name.Snake_1, snake_behavior = { snake_mode = .On_Median, on_entity_id = 9 } },
+	{ rectangle = {-2, 8, 2, 1}, speed = 1, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 8 }, },
+	{ rectangle = {global_number_grid_cells_axis_x, 8, 2, 1}, speed = -1, sprite_data = Animation_Player_Name.Snake_1, snake_behavior = { snake_mode = .On_Median, on_entity_id = 9 } },
 }
 
 
@@ -1012,8 +1026,8 @@ game_init :: proc()
 	gmem.score_frogger_max_y_tracker = gmem.frogger_pos.y - 1
 
 	gmem.level_end_timer = Timer{
-		amount = 2.0,
-		duration = 2.0,
+		amount = 6.0,
+		duration = 6.0,
 		loop = false,
 	}
 
@@ -1030,12 +1044,27 @@ game_init :: proc()
 
 	gmem.level_index = 0
 
+	gmem.lives = 3
+
 }
 
-
-frogger_reset :: proc(pos: [2]f32)
+score_increment :: proc(amount: int)
 {
+	old_score := gmem.score
+	gmem.score += amount
+	should_award_bonus_life := old_score < 20000 && gmem.score >= 20000
+	if should_award_bonus_life
+	{
+		gmem.lives += 1
+	}
+}
+
+frogger_reset :: proc()
+{
+	pos := [2]f32{7,14}
+
 	gmem.frogger_pos = pos
+	gmem.frogger_sprite_rotation = 0.0
 	gmem.score_frogger_max_y_tracker = pos.y - 1
 	gmem.is_lily_on_frogger = false
 	timer_stop(&gmem.frogger_move_lerp_timer)
@@ -1049,8 +1078,24 @@ frogger_start_dying :: proc(animation_name: Animation_Name)
 	gmem.is_lily_on_frogger = false
 	timer_stop(&gmem.frogger_move_lerp_timer)
 	animation_timer_start(&gmem.animation_player_frogger_is_dying.timer)
+	if gmem.lives != 0
+	{
+		gmem.lives -= 1
+	}
 }
 
+
+root_state_main_menu_enter :: proc()
+{
+	frogger_reset()
+	gmem.root_state = .Main_Menu
+	gmem.level_index = 0
+	for &is_frog_on_lilypad in gmem.is_frogs_on_lilypads
+	{
+		is_frog_on_lilypad = false
+	}
+	gmem.score = 0
+}
 
 root_state_game :: proc()
 {
@@ -1075,6 +1120,8 @@ root_state_game :: proc()
 	{
 		camera_mod_key := rl.KeyboardKey.C
 		level_mod_key := rl.KeyboardKey.L
+		frogs_on_lilypad_mod_key := rl.KeyboardKey.F
+
 		if rl.IsKeyDown(camera_mod_key)
 		{
 			if rl.IsKeyDown(.LEFT_BRACKET) && rl.IsKeyDown(.RIGHT_BRACKET)
@@ -1128,6 +1175,25 @@ root_state_game :: proc()
 				}
 			}
 		}
+		else if rl.IsKeyDown(frogs_on_lilypad_mod_key)
+		{
+			if rl.IsKeyPressed(.RIGHT_BRACKET)
+			{
+				for &present in gmem.is_frogs_on_lilypads
+				{
+					if !present
+					{
+						present = true
+						break
+					}
+				}
+			}
+		}
+		else if rl.IsKeyPressed(.M)
+		{
+			root_state_main_menu_enter()
+			return
+		}
 		else
 		{
 			skip_next_frame = rl.IsKeyPressed(.RIGHT)
@@ -1160,7 +1226,6 @@ root_state_game :: proc()
 	frame_time_uncapped := rl.GetFrameTime()
 	frame_time := min(frame_time_uncapped, f32(1.0/60.0))
 
-	frogger_start_pos := [2]f32{7,14}
 
 	frogger_anim_frames := [?]Sprite_Clip_Name{
 		.Frogger_Frame_1, .Frogger_Frame_2, .Frogger_Frame_1, .Frogger_Frame_0,
@@ -1382,9 +1447,16 @@ root_state_game :: proc()
 				animation_fps := animation_fps_list[animation_player_frogger_is_dying.animation_name]
 				animation_timer_advance(&gmem.animation_player_frogger_is_dying.timer, len(animation), animation_fps, frame_time)
 				did_complete := animation_timer_is_complete(gmem.animation_player_frogger_is_dying.timer, len(animation), animation_fps)
-				if did_complete
+				if did_complete && gmem.lives != 0
 				{
-					frogger_reset(frogger_start_pos)
+					frogger_reset()
+				}
+				else if did_complete && gmem.lives == 0
+				{
+					gmem.countdown_timer_game_over_display = global_countdown_timer_game_over_display
+					// root_state_main_menu_enter()
+					// return // don't process anything else here
+					
 				}
 			}			
 		}
@@ -1426,7 +1498,7 @@ root_state_game :: proc()
 			if should_award_points
 			{
 				gmem.score_frogger_max_y_tracker -= 1
-				gmem.score += point_value
+				score_increment(point_value)
 			}
 		}
 
@@ -1668,35 +1740,39 @@ root_state_game :: proc()
 					gmem.is_frogs_on_lilypads[i] = true
 
 					// NOTE(jblat): The extra 10 is essentially to give the effect of getting the 10 points from advancing a tile
-					score_amount_get_frogger_home := 110
-					gmem.score += score_amount_get_frogger_home
+					// 10 = frog safely gets gome
+					score_amount_get_frogger_home := 60
+					score_increment(score_amount_get_frogger_home)
 					
 
 					did_frogger_get_fly := fly_lilypad_indices[fly_lilypad_index] == i && fly_is_active
 					if did_frogger_get_fly
 					{
-						score_amount_frogger_get_fly := 100
-						gmem.score += score_amount_frogger_get_fly
-						timer_start(&gmem.timer_is_active_score_100)
-						gmem.pos_score_100.x = lilypad.x
-						gmem.pos_score_100.y = lilypad.y - 1
+						score_amount_frogger_get_fly := 200
+						score_increment(score_amount_frogger_get_fly)
+						timer_start(&gmem.timer_is_active_score_200)
+						gmem.pos_score_200.x = lilypad.x
+						gmem.pos_score_200.y = lilypad.y - 1
 					}
 
 					if gmem.is_lily_on_frogger
 					{
 						score_amount_get_lily_home := 200
-						gmem.score += score_amount_get_lily_home
+						score_increment(score_amount_get_lily_home)
 						timer_start(&gmem.timer_is_active_score_200)
 						gmem.pos_score_200.x = lilypad.x
 						gmem.pos_score_200.y = lilypad.y - 1
-						if did_frogger_get_fly
-						{
-							// make more room
-							gmem.pos_score_200.y -= 1
-						}
 					}
 
-					frogger_reset(frogger_start_pos)
+					gmem.countdown_timer_display_last_cycle_completion = global_countdown_timer_duration_display_last_cycle_completion
+
+					// so i think frogger counts two ticks for every second? based on timing an emulated version
+					remaining_seconds := int(gmem.countdown_timer_lose_life) * 2
+					time_bonus : int = 10 * remaining_seconds
+					score_increment(time_bonus)
+
+					gmem.last_cycle_completion_in_seconds = i32(remaining_seconds)
+					frogger_reset()
 				}
 			}
 
@@ -1712,6 +1788,8 @@ root_state_game :: proc()
 			is_all_frogs_on_lilypads := number_of_frogs_on_lilypad == len(gmem.is_frogs_on_lilypads)
 			if is_all_frogs_on_lilypads
 			{
+				// 1000 for saving all frogs
+				score_increment(1000)
 				timer_start(&gmem.level_end_timer)
 				// TODO(jalfonso): eventually i think this level stuff will be calculated by modulo
 				gmem.level_index += 1
@@ -1741,6 +1819,22 @@ root_state_game :: proc()
 			gmem.countdown_timer_lose_life -= frame_time
 			gmem.countdown_timer_lose_life = max(0.0, gmem.countdown_timer_lose_life)
 		}
+
+		gmem.countdown_timer_display_last_cycle_completion -= frame_time
+		gmem.countdown_timer_display_last_cycle_completion = max(0.0, gmem.countdown_timer_display_last_cycle_completion)
+
+		if gmem.countdown_timer_game_over_display > 0
+		{
+			gmem.countdown_timer_game_over_display -= frame_time
+			gmem.countdown_timer_game_over_display = max(0.0, gmem.countdown_timer_game_over_display)
+			just_completed := gmem.countdown_timer_game_over_display == 0.0
+			if just_completed
+			{
+				root_state_main_menu_enter()
+				return // don't process anything else here	
+			}
+		}
+
 		
 		should_check_for_frogger_is_killed := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)  && !gmem.dbg_is_frogger_unkillable
 		if should_check_for_frogger_is_killed 
@@ -1938,6 +2032,32 @@ root_state_game :: proc()
 			rl.DrawTextureEx(gmem.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
+		should_display_last_cycle_time := gmem.countdown_timer_display_last_cycle_completion > 0.0
+		if should_display_last_cycle_time 
+		{ 
+			text := fmt.ctprint("TIME:", gmem.last_cycle_completion_in_seconds)
+			size : f32= 0.7
+			text_dimensions := rl.MeasureTextEx(gmem.font, text, size, 0)
+			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.15}
+			leftmost_x := center_screen_on_median.x - text_dimensions.x/2
+			r := rl.Rectangle{leftmost_x, 8.15, text_dimensions.x, size}
+			rlgrid.draw_rectangle_on_grid(r, rl.BLACK, global_grid_cell_size)
+			rlgrid.draw_text_on_grid_centered(gmem.font, text, center_screen_on_median, size, 0, rl.RED, global_grid_cell_size)
+		}
+
+		should_display_game_over := gmem.countdown_timer_game_over_display > 0.0
+		if should_display_game_over 
+		{ 
+			text : cstring = "GAME OVER"
+			size : f32= 0.7
+			text_dimensions := rl.MeasureTextEx(gmem.font, text, size, 0)
+			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.15}
+			leftmost_x := center_screen_on_median.x - text_dimensions.x/2
+			r := rl.Rectangle{leftmost_x, 8.15, text_dimensions.x, size}
+			rlgrid.draw_rectangle_on_grid(r, rl.BLACK, global_grid_cell_size)
+			rlgrid.draw_text_on_grid_centered(gmem.font, text, center_screen_on_median, size, 0, rl.RED, global_grid_cell_size)
+		}
+
 
 		{ // draw entities
 			for entity, i in entities 
@@ -2031,16 +2151,35 @@ root_state_game :: proc()
 
 		
 		{ // draw frogs on lilypads
+			progress_of_level_end_timer := timer_percentage(gmem.level_end_timer)
+
 			for lp, i in lilypads
 			{	
 				is_there_a_frog_on_this_lilypad := gmem.is_frogs_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
-					rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
+					frog_p : f32 = f32(i) / f32(len(lilypads))
+					if progress_of_level_end_timer == 1
+					{
+						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
+					}
+					else
+					{
+						if frog_p >= progress_of_level_end_timer
+						{
+							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
+						}
+						else
+						{
+							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Open_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
+						}
+					}
 				}
 			}
 		}
 
+		is_game_over := gmem.countdown_timer_game_over_display > 0 
+		if !is_game_over 
 		{ // draw frogger
 			anim_timer    : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? gmem.animation_player_frogger_is_dying.timer.t     : frogger_anim_timer.amount
 			anim_fps      : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_fps_list[gmem.animation_player_frogger_is_dying.animation_name]       : 12.0 
@@ -2103,6 +2242,21 @@ root_state_game :: proc()
 			dst_rect := rl.Rectangle {gmem.pos_score_200.x, gmem.pos_score_200.y, 1, 1}
 			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_200,  global_sprite_sheet_cell_size, dst_rect, global_grid_cell_size, 0)			
 		}
+
+		{ // lives
+			for i in 0 ..< gmem.lives
+			{
+				scale : f32 = 0.7
+
+				dst_rectangle := rl.Rectangle{f32(i) * scale, global_number_grid_cells_axis_y - 1, 1, 1}
+				dst_rectangle.width *= scale
+				dst_rectangle.height *= scale
+				draw_sprite_sheet_clip_on_grid(.Frogger_Frame_0, dst_rectangle, global_grid_cell_size, 0.0)
+
+			}
+		}
+
+		
 	
 		if gmem.dbg_show_grid 
 		{ 	
@@ -2152,21 +2306,20 @@ root_state_game :: proc()
 			}
 
 			rlgrid.draw_text_on_grid_right_justified(gmem.font, score_text, score_text_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
-
-			if !timer_is_complete(gmem.level_end_timer)
-			{
-				text_get_ready : cstring = "get ready for next level!"
-				rlgrid.draw_text_on_grid_centered(gmem.font, text_get_ready, [2]f32{global_number_grid_cells_axis_x/2, 8}, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
-			}
 		}
 
 		{ // countdown timer
 			max_rectangle_width : f32 = 7.5
-			percentage_complete := gmem.countdown_timer_lose_life / global_countdown_timer_lose_life_duration
-			rectangle_width := max_rectangle_width * percentage_complete
+			percentage_full := gmem.countdown_timer_lose_life / global_countdown_timer_lose_life_duration
+			rectangle_width := max_rectangle_width * percentage_full
 
 			timer_rectangle := rl.Rectangle { global_number_grid_cells_axis_x - 2, global_number_grid_cells_axis_y - 0.5, rectangle_width, 0.5 }
-			rlgrid.draw_rectangle_on_grid_right_justified(timer_rectangle, rl.GREEN, global_grid_cell_size)
+			color := rl.GREEN
+			if percentage_full < 0.2
+			{
+				color = rl.RED
+			}
+			rlgrid.draw_rectangle_on_grid_right_justified(timer_rectangle, color, global_grid_cell_size)
 		}
 
 		rl.EndMode2D()
@@ -2181,7 +2334,10 @@ root_state_main_menu :: proc()
 	is_input_start := rl.IsKeyPressed(.ENTER) || rl.IsGamepadButtonPressed(0, .MIDDLE) || rl.IsGamepadButtonPressed(0, .MIDDLE_LEFT) || rl.IsGamepadButtonPressed(0, .MIDDLE_RIGHT) || rl.IsGamepadButtonPressed(0, .RIGHT_FACE_DOWN)  
 	if is_input_start
 	{
+		gmem.countdown_timer_display_last_cycle_completion = 0
+		gmem.lives = 3
 		gmem.root_state = .Game
+		frogger_reset()
 	}
 	rl.BeginTextureMode(gmem.game_render_target)
 	defer rl.EndTextureMode()
