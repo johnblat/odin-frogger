@@ -22,8 +22,8 @@ global_number_grid_cells_axis_y    : f32 : 16
 global_game_view_pixels_width      : f32 : global_game_texture_grid_cell_size * global_number_grid_cells_axis_x
 global_game_view_pixels_height     : f32 : global_game_texture_grid_cell_size * global_number_grid_cells_axis_y
 global_countdown_timer_lose_life_duration : f32 = 30.0
-global_countdown_timer_duration_display_last_cycle_completion : f32 = 4.0
-global_countdown_timer_game_over_display: f32 = 3.0
+global_level_end_timer_duration : f32 = 6.0
+
 
 Direction :: enum {
 	Up, Down, Left, Right
@@ -82,6 +82,13 @@ Lerp_Position :: struct
 	timer :Timer,
 	start_pos: [2]f32,
 	end_pos: [2]f32,
+}
+
+Lerp_Value :: struct
+{
+	timer: Timer,
+	start_val: f32,
+	end_val: f32,
 }
 
 
@@ -163,7 +170,6 @@ Game_Memory :: struct
 
 	animation_player_frogger_is_dying: Animation_Player,
 
-	countdown_timer_lose_life: f32,
 
 	level_current : int,
 
@@ -176,15 +182,21 @@ Game_Memory :: struct
 	is_lily_on_frogger : bool,
 
 	// win
-	is_frogs_on_lilypads :[5]bool,
-	level_end_timer :Timer,
+	is_frog_present_on_lilypads :[5]bool,
 
 	// score
 	score :int,
 	score_frogger_max_y_tracker : f32,
 
-	timer_is_active_score_100: Timer,
-	timer_is_active_score_200: Timer,
+	// countdown timers
+	timer_is_active_score_100: f32,
+	timer_is_active_score_200: f32,
+	countdown_timer_display_last_cycle_completion: f32,
+	countdown_timer_game_over_display: f32,
+	countdown_timer_lose_life: f32,
+	level_end_timer :f32,
+
+
 
 	pos_score_100: [2]f32,
 	pos_score_200: [2]f32,
@@ -201,9 +213,7 @@ Game_Memory :: struct
 	level_index: u32,
 
 	last_cycle_completion_in_seconds : i32,
-	countdown_timer_display_last_cycle_completion: f32,
 
-	countdown_timer_game_over_display: f32,
 }
 
 
@@ -263,6 +273,28 @@ lerp_position_progress_pos :: proc(lerp: Lerp_Position) -> (progress_pos: [2]f32
 	t = min(t, 1.0)
 	progress_pos.x = (1.0 - t) * lerp.start_pos.x + t * lerp.end_pos.x
 	progress_pos.y = (1.0 - t) * lerp.start_pos.y + t * lerp.end_pos.y
+	return
+}
+
+lerp_value_start :: proc(lerp: ^Lerp_Value, start_val, end_val: f32)
+{
+	timer_start(&lerp.timer)
+	lerp.start_val = start_val
+	lerp.end_val = end_val
+}
+
+lerp_value_advance :: proc(lerp: ^Lerp_Value, dt: f32) -> (progress_val: f32, just_completed: bool)
+{
+	just_completed = timer_advance(&lerp.timer, dt)
+	progress_val = lerp_value_progress(lerp^)
+	return
+}
+
+lerp_value_progress :: proc(lerp: Lerp_Value) -> (progress_val: f32)
+{
+	t := timer_percentage(lerp.timer)
+	t = min(t, 1.0)
+	progress_val = (1.0 - t) * lerp.start_val + t * lerp.end_val
 	return
 }
 
@@ -480,12 +512,7 @@ lily_wait_timer := Timer {
 
 lily_direction : Direction = .Right
 
-lily_lerp_timer := Timer {
-	amount = 0.2,
-	duration = 0.2,
-}
-lily_lerp_relative_log_start_x : f32 = 0
-lily_lerp_relative_log_end_x   : f32 = 0 
+lily_move_lerp := Lerp_Value { timer = { amount = 0.2, duration = 0.2 } }
 
 lily_logs_to_spawn_on := [?]int{15, 17, 14, 12, 11}
 
@@ -609,20 +636,14 @@ game_init :: proc()
 
 	gmem.score_frogger_max_y_tracker = gmem.frogger_pos.y - 1
 
-	gmem.level_end_timer = Timer{
-		amount = 6.0,
-		duration = 6.0,
-		loop = false,
-	}
-
-	gmem.timer_is_active_score_100 = timer_init(2.0, false)
-	gmem.timer_is_active_score_200 = timer_init(2.0, false)
-
+	// gmem.level_end_timer = Countdown_Timer{ is_playing = false, duration = 6.0 }
+	// gmem.timer_is_active_score_200 = Countdown_Timer{ is_playing = false, duration = 2.0 }
+	// gmem.countdown_timer_game_over_display = Countdown_Timer{ is_playing = false, duration = 6.0}
 	gmem.animation_player_frogger_is_dying = { timer = { t = 0, playing = false, loop = false }, fps = 12, animation_name = .Frogger_Dying_Hit }
+	// gmem.countdown_timer_display_last_cycle_completion = Countdown_Timer{ is_playing = false, duration = 4.0}
+	// gmem.countdown_timer_lose_life = Countdown_Timer{is_playing = false, duration = 30.0}
 
 	gmem.dbg_camera_zoom = 1.0
-
-	gmem.countdown_timer_lose_life = global_countdown_timer_lose_life_duration
 
 	gmem.dbg_speed_multiplier = 1.0
 
@@ -674,9 +695,9 @@ root_state_main_menu_enter :: proc()
 	frogger_reset()
 	gmem.root_state = .Main_Menu
 	gmem.level_index = 0
-	for &is_frog_on_lilypad in gmem.is_frogs_on_lilypads
+	for &present in gmem.is_frog_present_on_lilypads
 	{
-		is_frog_on_lilypad = false
+		present = false
 	}
 	gmem.score = 0
 }
@@ -763,7 +784,7 @@ root_state_game :: proc()
 		{
 			if rl.IsKeyPressed(.RIGHT_BRACKET)
 			{
-				for &present in gmem.is_frogs_on_lilypads
+				for &present in gmem.is_frog_present_on_lilypads
 				{
 					if !present
 					{
@@ -828,7 +849,7 @@ root_state_game :: proc()
 	if should_run_simulation
 	{	
 
-		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp.timer)  && !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause && gmem.countdown_timer_game_over_display == 0
+		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp.timer)  && !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !countdown_is_playing(gmem.level_end_timer) && !gmem.pause && !countdown_is_playing(gmem.countdown_timer_game_over_display)
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -905,12 +926,9 @@ root_state_game :: proc()
 			entity_that_lily_is_on := entities[lily_logs_to_spawn_on[gmem.level_index]]
 
 			lily_lerp_timer_just_completed := false
-			if timer_is_playing(lily_lerp_timer)
+			if timer_is_playing(lily_move_lerp.timer)
 			{
-				lily_lerp_timer_just_completed = !timer_advance(&lily_lerp_timer, frame_time)
-				t := timer_percentage(lily_lerp_timer)
-				t = min(t, 1.0)
-				lily_relative_log_pos_x = (1.0 - t) * lily_lerp_relative_log_start_x + t * lily_lerp_relative_log_end_x
+				lily_relative_log_pos_x, lily_lerp_timer_just_completed = lerp_value_advance(&lily_move_lerp, frame_time)
 			}
 
 			if lily_lerp_timer_just_completed
@@ -933,7 +951,7 @@ root_state_game :: proc()
 			lily_wait_timer_just_completed := false
 			if timer_is_playing(lily_wait_timer)
 			{
-				lily_wait_timer_just_completed = !timer_advance(&lily_wait_timer, frame_time)
+				lily_wait_timer_just_completed = timer_advance(&lily_wait_timer, frame_time)
 			}
 
 			if lily_wait_timer_just_completed
@@ -964,9 +982,8 @@ root_state_game :: proc()
 
 				if did_lily_move_amount_get_set
 				{
-					lily_lerp_relative_log_start_x = lily_relative_log_pos_x
-					lily_lerp_relative_log_end_x = lily_lerp_relative_log_start_x + move_amount_x
-					timer_start(&lily_lerp_timer)
+					lily_lerp_relative_log_end_x := lily_relative_log_pos_x + move_amount_x
+					lerp_value_start(&lily_move_lerp, lily_relative_log_pos_x, lily_lerp_relative_log_end_x)
 				}
 			}
 
@@ -1003,8 +1020,7 @@ root_state_game :: proc()
 
 		{ // update timers
 			timer_advance(&frogger_anim_timer, frame_time)
-			timer_advance(&gmem.timer_is_active_score_100, frame_time)
-			timer_advance(&gmem.timer_is_active_score_200, frame_time)
+			countdown(&gmem.timer_is_active_score_200, frame_time)
 			for &animation_player in animation_players
 			{
 				animation_player_advance(&animation_player, frame_time)
@@ -1023,15 +1039,15 @@ root_state_game :: proc()
 				else if just_completed && gmem.lives == 0
 				{
 					frogger_reset()
-					gmem.countdown_timer_game_over_display = global_countdown_timer_game_over_display
+					gmem.countdown_timer_game_over_display = 6.0
 				}
 			}			
 		}
 
 
-		if !timer_is_playing(gmem.level_end_timer) { // fly 
-			timer_advance(&fly_timer, frame_time)
-			if timer_is_complete(fly_timer)
+		if !countdown_is_playing(gmem.level_end_timer) { // fly 
+			just_completed := timer_advance(&fly_timer, frame_time)
+			if just_completed
 			{
 				timer_start(&fly_timer)
 				fly_is_active = !fly_is_active
@@ -1040,7 +1056,7 @@ root_state_game :: proc()
 				{
 					fly_lilypad_index = 0
 				}
-				for gmem.is_frogs_on_lilypads[fly_lilypad_indices[fly_lilypad_index]]
+				for gmem.is_frog_present_on_lilypads[fly_lilypad_indices[fly_lilypad_index]]
 				{
 					fly_lilypad_index += 1
 					if fly_lilypad_index >= len(fly_lilypad_indices)
@@ -1168,34 +1184,27 @@ root_state_game :: proc()
 		should_process_crocodile_timers := gmem.level_index != 0
 		if should_process_crocodile_timers 
 		{
-			if timer_is_playing(timer_crocodile_inactive)
+			inactive_just_completed := timer_advance(&timer_crocodile_inactive, frame_time)
+			if inactive_just_completed
 			{
-				just_completed := !timer_advance(&timer_crocodile_inactive, frame_time)
-				if just_completed
-				{
-					timer_start(&timer_crocodile_peek)
-				}
+				timer_start(&timer_crocodile_peek)
 			}
-			else if timer_is_playing(timer_crocodile_peek)
+		
+			peek_just_completed := timer_advance(&timer_crocodile_peek, frame_time)
+			if peek_just_completed
 			{
-				just_completed := !timer_advance(&timer_crocodile_peek, frame_time)
-				if just_completed
-				{
-					timer_start(&timer_crocodile_attack)
-				}
+				timer_start(&timer_crocodile_attack)
 			}
-			else if timer_is_playing(timer_crocodile_attack)
+
+			attack_just_completed := timer_advance(&timer_crocodile_attack, frame_time)
+			if attack_just_completed
 			{
-				just_completed := !timer_advance(&timer_crocodile_attack, frame_time)
-				if just_completed
+				timer_start(&timer_crocodile_inactive)
+				current_crocodile_lilypad_id_index += 1
+				should_wrap_index := current_crocodile_lilypad_id_index >= len(lilypad_ids_crocodile)
+				if should_wrap_index
 				{
-					timer_start(&timer_crocodile_inactive)
-					current_crocodile_lilypad_id_index += 1
-					should_wrap_index := current_crocodile_lilypad_id_index >= len(lilypad_ids_crocodile)
-					if should_wrap_index
-					{
-						current_crocodile_lilypad_id_index = 0
-					}
+					current_crocodile_lilypad_id_index = 0
 				}
 			}
 		}
@@ -1212,7 +1221,7 @@ root_state_game :: proc()
 				just_finished_attacking := false
 				if timer_is_playing(otter.timer_attack)
 				{
-					just_finished_attacking = !timer_advance(&otter.timer_attack, frame_time)
+					just_finished_attacking = timer_advance(&otter.timer_attack, frame_time)
 				}
 				// place otters if they intersect with a entity
 				is_otter_intersecting_with_any_entities := false
@@ -1292,19 +1301,19 @@ root_state_game :: proc()
 		}
 
 
-		should_check_for_win_condtions := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !timer_is_playing(gmem.level_end_timer)
+		should_check_for_win_condtions := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !countdown_is_playing(gmem.level_end_timer)
 		if should_check_for_win_condtions 
 		{
 			for lilypad, i in lilypads 
 			{	
 				frogger_center_pos := gmem.frogger_pos + 0.5
 				is_frogger_on_lilypad := rl.CheckCollisionPointRec(frogger_center_pos, lilypad)
-				is_there_already_a_frog_here := gmem.is_frogs_on_lilypads[i]
+				is_there_already_a_frog_here := gmem.is_frog_present_on_lilypads[i]
 				did_get_frogger_home := is_frogger_on_lilypad && !is_there_already_a_frog_here
 				
 				if did_get_frogger_home 
 				{
-					gmem.is_frogs_on_lilypads[i] = true
+					gmem.is_frog_present_on_lilypads[i] = true
 
 					// NOTE(jblat): The extra 10 is essentially to give the effect of getting the 10 points from advancing a tile
 					// 10 = frog safely gets gome
@@ -1317,7 +1326,7 @@ root_state_game :: proc()
 					{
 						score_amount_frogger_get_fly := 200
 						score_increment(score_amount_frogger_get_fly)
-						timer_start(&gmem.timer_is_active_score_200)
+						gmem.timer_is_active_score_200 = 2.0
 						gmem.pos_score_200.x = lilypad.x
 						gmem.pos_score_200.y = lilypad.y - 1
 					}
@@ -1326,12 +1335,12 @@ root_state_game :: proc()
 					{
 						score_amount_get_lily_home := 200
 						score_increment(score_amount_get_lily_home)
-						timer_start(&gmem.timer_is_active_score_200)
+						gmem.timer_is_active_score_200 = 2.0
 						gmem.pos_score_200.x = lilypad.x
 						gmem.pos_score_200.y = lilypad.y - 1
 					}
 
-					gmem.countdown_timer_display_last_cycle_completion = global_countdown_timer_duration_display_last_cycle_completion
+					gmem.countdown_timer_display_last_cycle_completion = 4.0
 
 					// so i think frogger counts two ticks for every second? based on timing an emulated version
 					remaining_seconds := int(gmem.countdown_timer_lose_life) * 2
@@ -1344,7 +1353,7 @@ root_state_game :: proc()
 			}
 
 			number_of_frogs_on_lilypad := 0
-			for present in gmem.is_frogs_on_lilypads
+			for present in gmem.is_frog_present_on_lilypads
 			{
 				if present
 				{
@@ -1352,12 +1361,12 @@ root_state_game :: proc()
 				}
 			}
 
-			is_all_frogs_on_lilypads := number_of_frogs_on_lilypad == len(gmem.is_frogs_on_lilypads)
+			is_all_frogs_on_lilypads := number_of_frogs_on_lilypad == len(gmem.is_frog_present_on_lilypads)
 			if is_all_frogs_on_lilypads
 			{
 				// 1000 for saving all frogs
 				score_increment(1000)
-				timer_start(&gmem.level_end_timer)
+				gmem.level_end_timer = global_level_end_timer_duration
 				// TODO(jalfonso): eventually i think this level stuff will be calculated by modulo
 				gmem.level_index += 1
 				if gmem.level_index > 4
@@ -1367,41 +1376,32 @@ root_state_game :: proc()
 			}
 		}
 
-
-		if timer_is_playing(gmem.level_end_timer)
+		
+		if countdown_and_did_just_complete(&gmem.level_end_timer, frame_time)
 		{
-			timer_advance(&gmem.level_end_timer, frame_time)
-			if timer_is_complete(gmem.level_end_timer)
+			for &present in gmem.is_frog_present_on_lilypads
 			{
-				for &present in gmem.is_frogs_on_lilypads
-				{
-					present = false
-				}
+				present = false
 			}
 		}
+		
 
-		should_process_countdown_timer := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !gmem.dbg_timer_lose_life_pause && gmem.countdown_timer_game_over_display == 0 && !timer_is_playing(gmem.level_end_timer)
+		should_process_countdown_timer := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !gmem.dbg_timer_lose_life_pause && !countdown_is_playing(gmem.countdown_timer_game_over_display) && !countdown_is_playing(gmem.level_end_timer)
 		if should_process_countdown_timer
 		{
-			gmem.countdown_timer_lose_life -= frame_time
-			gmem.countdown_timer_lose_life = max(0.0, gmem.countdown_timer_lose_life)
-		}
-
-		gmem.countdown_timer_display_last_cycle_completion -= frame_time
-		gmem.countdown_timer_display_last_cycle_completion = max(0.0, gmem.countdown_timer_display_last_cycle_completion)
-
-		if gmem.countdown_timer_game_over_display > 0.0
-		{
-			gmem.countdown_timer_game_over_display -= frame_time
-			gmem.countdown_timer_game_over_display = max(0.0, gmem.countdown_timer_game_over_display)
-			just_completed := gmem.countdown_timer_game_over_display == 0.0
-			if just_completed
+			if countdown_and_did_just_complete(&gmem.countdown_timer_lose_life, frame_time)
 			{
-				root_state_main_menu_enter()
-				return // don't process anything else here	
+				frogger_start_dying(.Frogger_Dying_Hit)					
 			}
 		}
 
+		countdown(&gmem.countdown_timer_display_last_cycle_completion, frame_time)
+
+		if countdown_and_did_just_complete(&gmem.countdown_timer_game_over_display, frame_time)
+		{
+			root_state_main_menu_enter()
+			return // don't process anything else here	
+		}
 		
 		should_check_for_frogger_is_killed := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)  && !gmem.dbg_is_frogger_unkillable
 		if should_check_for_frogger_is_killed 
@@ -1434,7 +1434,7 @@ root_state_game :: proc()
 			for lilypad, i in lilypads
 			{
 				is_frogger_on_lilypad := rl.CheckCollisionPointRec(frogger_center_pos, lilypad)
-				is_frog_already_here := gmem.is_frogs_on_lilypads[i]
+				is_frog_already_here := gmem.is_frog_present_on_lilypads[i]
 				is_frogger_on_one_of_the_open_lilypads = is_frogger_on_one_of_the_open_lilypads || (is_frogger_on_lilypad && !is_frog_already_here)
 			}
 
@@ -1538,14 +1538,6 @@ root_state_game :: proc()
 					}
 				}
 			}
-
-			{ // countdown timer
-				is_countdown_complete := gmem.countdown_timer_lose_life <= 0.0 
-				if is_countdown_complete
-				{
-					frogger_start_dying(.Frogger_Dying_Hit)
-				}
-			}
 		}	
 	}
 
@@ -1597,7 +1589,7 @@ root_state_game :: proc()
 			rl.DrawTextureEx(gmem.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
-		should_display_last_cycle_time := gmem.countdown_timer_display_last_cycle_completion > 0.0
+		should_display_last_cycle_time := countdown_is_playing(gmem.countdown_timer_display_last_cycle_completion)
 		if should_display_last_cycle_time 
 		{ 
 			text := fmt.ctprint("TIME:", gmem.last_cycle_completion_in_seconds)
@@ -1613,7 +1605,7 @@ root_state_game :: proc()
 			)
 		}
 
-		should_display_game_over := gmem.countdown_timer_game_over_display > 0.0
+		should_display_game_over := countdown_is_playing(gmem.countdown_timer_game_over_display)
 		if should_display_game_over 
 		{ 
 			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
@@ -1679,7 +1671,7 @@ root_state_game :: proc()
 		{ // draw crocodile
 			lilypad_rectangle := lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]]
 			lilypad_pos := [2]f32{lilypad_rectangle.x, lilypad_rectangle.y}
-			is_frog_here := gmem.is_frogs_on_lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]]
+			is_frog_here := gmem.is_frog_present_on_lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]]
 
 			if timer_is_playing(timer_crocodile_peek) && !is_frog_here
 			{
@@ -1721,11 +1713,11 @@ root_state_game :: proc()
 
 		
 		{ // draw frogs on lilypads
-			progress_of_level_end_timer := timer_percentage(gmem.level_end_timer)
+			progress_of_level_end_timer := percentage_remaining(gmem.level_end_timer, 4.0)
 
 			for lp, i in lilypads
 			{	
-				is_there_a_frog_on_this_lilypad := gmem.is_frogs_on_lilypads[i]
+				is_there_a_frog_on_this_lilypad := gmem.is_frog_present_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
 					frog_p : f32 = f32(i) / f32(len(lilypads))
@@ -1748,7 +1740,7 @@ root_state_game :: proc()
 			}
 		}
 
-		should_draw_frogger := gmem.countdown_timer_game_over_display == 0 
+		should_draw_frogger := !countdown_is_playing(gmem.countdown_timer_game_over_display)
 		if should_draw_frogger 
 		{
 			if animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)
@@ -1797,12 +1789,8 @@ root_state_game :: proc()
 			}
 		}
 
-		if timer_is_playing(gmem.timer_is_active_score_100)
-		{
-			draw_sprite_sheet_clip_on_game_texture_grid(.Score_100, gmem.pos_score_100)
-		}
 
-		if timer_is_playing(gmem.timer_is_active_score_200)
+		if countdown_is_playing(gmem.timer_is_active_score_200)
 		{
 			draw_sprite_sheet_clip_on_game_texture_grid(.Score_200, gmem.pos_score_200)
 		}
@@ -1870,7 +1858,7 @@ root_state_game :: proc()
 
 		{ // countdown timer
 			max_rectangle_width : f32 = 7.5
-			percentage_full := gmem.countdown_timer_lose_life / global_countdown_timer_lose_life_duration
+			percentage_full := percentage_full(gmem.countdown_timer_lose_life, global_countdown_timer_lose_life_duration)
 			rectangle_width := max_rectangle_width * percentage_full
 
 			timer_rectangle := rl.Rectangle { global_number_grid_cells_axis_x - 2, global_number_grid_cells_axis_y - 0.5, rectangle_width, 0.5 }

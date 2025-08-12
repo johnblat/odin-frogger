@@ -8,6 +8,40 @@ Timer :: struct
 }
 
 
+
+countdown_and_did_just_complete :: proc(t: ^f32, dt: f32) -> (just_completed: bool)
+{
+	is_already_completed := t^ <= 0.0
+	countdown(t, dt)
+	just_completed = t^ <= 0.0 && !is_already_completed
+	return
+}
+
+countdown :: proc(t: ^f32, dt: f32)
+{
+	t^ -= dt
+	t^ = max(t^, 0.0)	
+}
+
+countdown_is_playing :: proc(t: f32) -> bool
+{
+	return t > 0.0
+}
+
+
+
+
+percentage_remaining :: proc(v, max: f32) -> f32
+{
+	return 1.0 - percentage_full(v, max)
+}
+
+percentage_full :: proc(v, max: f32) -> f32
+{
+	return v / max
+}
+
+
 timer_is_complete :: proc(timer: Timer) -> bool
 {
 	if timer.amount >= timer.duration
@@ -26,18 +60,24 @@ timer_is_playing :: proc(timer: Timer) -> bool
 
 
 // Advances timer, and returns whether it is still playing
-timer_advance :: proc(timer: ^Timer, dt: f32) -> bool
+timer_advance :: proc(timer: ^Timer, dt: f32) -> (just_completed: bool)
 {
-	timer.amount += dt
+	before_is_playing := timer_is_playing(timer^)
 
+	timer.amount += dt
 	timer.amount = min(timer.amount, timer.duration)
 	if timer.loop && timer_is_complete(timer^)
 	{
 		timer_start(timer)
 	}
 
-	is_playing := timer_is_playing(timer^)
-	return is_playing
+	after_is_playing := timer_is_playing(timer^)
+	if before_is_playing && !after_is_playing
+	{
+		return true
+	}
+
+	return false
 }
 
 
