@@ -737,6 +737,7 @@ animation_frames_frogger_dying_hit := [?]Sprite_Clip_Name {
 	.Empty,
 }
 
+// TODO(jalf): some reason, this needs to be about same length as above, or else the animation will display not right (wraps back around to beginning)
 animation_frames_frogger_dying_drown := [?]Sprite_Clip_Name {
 	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
 	.Frogger_Dying_Ripple_Frame_0, .Frogger_Dying_Ripple_Frame_1, .Frogger_Dying_Ripple_Frame_2,
@@ -747,6 +748,11 @@ animation_frames_frogger_dying_drown := [?]Sprite_Clip_Name {
 	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
 	.Skull_And_Crossbones, .Skull_And_Crossbones, .Empty, .Empty,
 	.Empty,
+	.Empty,
+	.Empty,
+	.Empty,
+	.Empty,
+
 }
 
 animation_frames_snake := [?]Sprite_Clip_Name {
@@ -1244,7 +1250,7 @@ root_state_game :: proc()
 	if should_run_simulation
 	{	
 
-		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause
+		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause && gmem.countdown_timer_game_over_display == 0
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -1453,6 +1459,7 @@ root_state_game :: proc()
 				}
 				else if did_complete && gmem.lives == 0
 				{
+					frogger_reset()
 					gmem.countdown_timer_game_over_display = global_countdown_timer_game_over_display
 					// root_state_main_menu_enter()
 					// return // don't process anything else here
@@ -1813,7 +1820,7 @@ root_state_game :: proc()
 			}
 		}
 
-		should_process_countdown_timer := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !gmem.dbg_timer_lose_life_pause
+		should_process_countdown_timer := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && !gmem.dbg_timer_lose_life_pause && gmem.countdown_timer_game_over_display == 0 && !timer_is_playing(gmem.level_end_timer)
 		if should_process_countdown_timer
 		{
 			gmem.countdown_timer_lose_life -= frame_time
@@ -1823,7 +1830,7 @@ root_state_game :: proc()
 		gmem.countdown_timer_display_last_cycle_completion -= frame_time
 		gmem.countdown_timer_display_last_cycle_completion = max(0.0, gmem.countdown_timer_display_last_cycle_completion)
 
-		if gmem.countdown_timer_game_over_display > 0
+		if gmem.countdown_timer_game_over_display > 0.0
 		{
 			gmem.countdown_timer_game_over_display -= frame_time
 			gmem.countdown_timer_game_over_display = max(0.0, gmem.countdown_timer_game_over_display)
@@ -2337,6 +2344,7 @@ root_state_main_menu :: proc()
 		gmem.countdown_timer_display_last_cycle_completion = 0
 		gmem.lives = 3
 		gmem.root_state = .Game
+		gmem.animation_player_frogger_is_dying.timer.playing = false
 		frogger_reset()
 	}
 	rl.BeginTextureMode(gmem.game_render_target)
