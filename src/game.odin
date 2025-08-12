@@ -519,10 +519,9 @@ lily_logs_to_spawn_on := [?]int{15, 17, 14, 12, 11}
 lilypad_ids_crocodile := [?]int{4, 0, 3, 1, 2, 1, 3, 0}
 current_crocodile_lilypad_id_index := 0
 
-timer_crocodile_inactive := Timer { amount = 0, duration = 6.0 }
-timer_crocodile_peek     := Timer { amount = 2.0, duration = 2.0 }
-timer_crocodile_attack   := Timer { amount = 1.0, duration = 1.0 }
-
+timer_crocodile_inactive: f32
+timer_crocodile_peek: f32
+timer_crocodile_attack: f32
 
 
 move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
@@ -1181,39 +1180,42 @@ root_state_game :: proc()
 			}
 		}
 
-		should_process_crocodile_timers := gmem.level_index != 0
-		if should_process_crocodile_timers 
 		{
-			inactive_just_completed := timer_advance(&timer_crocodile_inactive, frame_time)
-			if inactive_just_completed
-			{
-				timer_start(&timer_crocodile_peek)
-			}
-		
-			peek_just_completed := timer_advance(&timer_crocodile_peek, frame_time)
-			if peek_just_completed
-			{
-				timer_start(&timer_crocodile_attack)
-			}
+			timer_crocodile_inactive_duration : f32 = 6.0
 
-			attack_just_completed := timer_advance(&timer_crocodile_attack, frame_time)
-			if attack_just_completed
+			should_process_crocodile_timers := gmem.level_index != 0
+			if should_process_crocodile_timers 
 			{
-				timer_start(&timer_crocodile_inactive)
-				current_crocodile_lilypad_id_index += 1
-				should_wrap_index := current_crocodile_lilypad_id_index >= len(lilypad_ids_crocodile)
-				if should_wrap_index
+				if countdown_and_did_just_complete(&timer_crocodile_inactive, frame_time)
 				{
-					current_crocodile_lilypad_id_index = 0
+					timer_crocodile_peek = 2.0
+				}
+			
+				if countdown_and_did_just_complete(&timer_crocodile_peek, frame_time)
+				{
+					timer_crocodile_attack = 1.0
+				}
+
+				if countdown_and_did_just_complete(&timer_crocodile_attack, frame_time)
+				{
+					timer_crocodile_inactive = timer_crocodile_inactive_duration
+					current_crocodile_lilypad_id_index += 1
+					should_wrap_index := current_crocodile_lilypad_id_index >= len(lilypad_ids_crocodile)
+					if should_wrap_index
+					{
+						current_crocodile_lilypad_id_index = 0
+					}
 				}
 			}
+			else
+			{
+				timer_crocodile_peek = 0
+				timer_crocodile_attack = 0
+				timer_crocodile_inactive = timer_crocodile_inactive_duration
+			}
 		}
-		else
-		{
-			timer_stop(&timer_crocodile_peek)
-			timer_stop(&timer_crocodile_attack)
-			timer_start(&timer_crocodile_inactive)
-		}
+
+		
 
 		{ // otters
 			for &otter in otters
@@ -1286,7 +1288,7 @@ root_state_game :: proc()
 		if should_check_pre_win_condition_frogger_is_killed
 		{
 			{ // crocodile attack
-				if timer_is_playing(timer_crocodile_attack)
+				if countdown_is_playing(timer_crocodile_attack)
 				{
 					lilypad_id_crocodile_is_in := lilypad_ids_crocodile[current_crocodile_lilypad_id_index]
 					lilypad := lilypads[lilypad_id_crocodile_is_in]
@@ -1673,11 +1675,11 @@ root_state_game :: proc()
 			lilypad_pos := [2]f32{lilypad_rectangle.x, lilypad_rectangle.y}
 			is_frog_here := gmem.is_frog_present_on_lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]]
 
-			if timer_is_playing(timer_crocodile_peek) && !is_frog_here
+			if countdown_is_playing(timer_crocodile_peek) && !is_frog_here
 			{
 				draw_sprite_sheet_clip_on_game_texture_grid(.Crocodile_Head_Peek, lilypad_pos)
 			}
-			else if timer_is_playing(timer_crocodile_attack) && !is_frog_here
+			else if countdown_is_playing(timer_crocodile_attack) && !is_frog_here
 			{
 				draw_sprite_sheet_clip_on_game_texture_grid(.Crocodile_Head_Attack, lilypad_pos)
 			}
@@ -1716,24 +1718,25 @@ root_state_game :: proc()
 			progress_of_level_end_timer := percentage_remaining(gmem.level_end_timer, 4.0)
 
 			for lp, i in lilypads
-			{	
+			{	lp_pos := [2]f32 {lp.x, lp.y}
+
 				is_there_a_frog_on_this_lilypad := gmem.is_frog_present_on_lilypads[i]
 				if is_there_a_frog_on_this_lilypad
 				{
 					frog_p : f32 = f32(i) / f32(len(lilypads))
 					if progress_of_level_end_timer == 1
 					{
-						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_game_texture_grid_cell_size, 0)
+						draw_sprite_sheet_clip_on_game_texture_grid(.Happy_Frog_Closed_Mouth, lp_pos)
 					}
 					else
 					{
 						if frog_p >= progress_of_level_end_timer
 						{
-							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_game_texture_grid_cell_size, 0)
+							draw_sprite_sheet_clip_on_game_texture_grid(.Happy_Frog_Closed_Mouth, lp_pos)
 						}
 						else
 						{
-							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Open_Mouth], global_sprite_sheet_cell_size,  lp, global_game_texture_grid_cell_size, 0)
+							draw_sprite_sheet_clip_on_game_texture_grid(.Happy_Frog_Open_Mouth, lp_pos)							
 						}
 					}
 				}
@@ -1879,6 +1882,17 @@ root_state_game :: proc()
 
 root_state_main_menu :: proc()
 {
+	@(static)visible: bool
+	blink_timer_duration :: 0.3
+	@(static)blink_timer: f32 = blink_timer_duration
+
+	dt := rl.GetFrameTime()
+	if countdown_and_did_just_complete(&blink_timer, dt)
+	{
+		visible = !visible
+		blink_timer = blink_timer_duration
+	}
+
 	is_input_start := rl.IsKeyPressed(.ENTER) || rl.IsGamepadButtonPressed(0, .MIDDLE) || rl.IsGamepadButtonPressed(0, .MIDDLE_LEFT) || rl.IsGamepadButtonPressed(0, .MIDDLE_RIGHT) || rl.IsGamepadButtonPressed(0, .RIGHT_FACE_DOWN)  
 	if is_input_start
 	{
@@ -1892,20 +1906,20 @@ root_state_main_menu :: proc()
 	defer rl.EndTextureMode()
 
 	rl.ClearBackground(rl.BLACK)
-	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 2}
+	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 5}
 	rlgrid.draw_text_on_grid_centered(gmem.font, "FROGGER", title_centered_pos, 2, 0, rl.GREEN, global_game_texture_grid_cell_size )
 	title_centered_pos.y += 2
-	// rlgrid.draw_text_on_grid_centered(gmem.font, "PRO", title_centered_pos, 2, 0, rl.GREEN, global_game_texture_grid_cell_size )
 
-	press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
-	rlgrid.draw_text_on_grid_centered(gmem.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_game_texture_grid_cell_size)
+	if visible
+	{
+		press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
+		rlgrid.draw_text_on_grid_centered(gmem.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_game_texture_grid_cell_size)		
+	}
 
 	credits_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, global_number_grid_cells_axis_y - 3}
 	rlgrid.draw_text_on_grid_centered(gmem.font, "a fanmade frogger remake", credits_centered_pos, 0.3, 0, rl.WHITE, global_game_texture_grid_cell_size)
 
 	credits_centered_pos.y += 0.3
-	// rlgrid.draw_text_on_grid_centered(gmem.font, "code by john blat", credits_centered_pos, 0.3, 0, rl.WHITE, global_game_texture_grid_cell_size)
-
 }
 
 
