@@ -104,3 +104,29 @@ draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectan
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
 	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, dst_grid_cell_size, rotation, flip_x, flip_y)
 }
+
+draw_sprite_sheet_clip_on_game_texture_grid :: proc(
+	sprite_clip: Sprite_Clip_Name, 
+	pos: [2]f32, 
+	rotation: f32 = 0.0,  
+	scale_x: f32 = 1.0, scale_y: f32 = 1.0, 
+	flip_x : bool = false, flip_y : bool = false 
+)
+{
+	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
+	dst_rectangle := rl.Rectangle{pos.x, pos.y, rectangle_clip.width * scale_x, rectangle_clip.height * scale_y}
+	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, global_game_texture_grid_cell_size, rotation, flip_x, flip_y)
+}
+
+draw_sprite_sheet_clip_on_game_texture_grid_from_animation_player :: proc
+(
+	animation_player: Animation_Player,
+	pos: [2]f32,
+	rotation: f32 = 0.0,
+	scale_x: f32 = 1.0, scale_y : f32 = 1.0,
+	flip_x : bool = false, flip_y : bool = false,
+)
+{
+	clip_name := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_player.fps, global_sprite_animations[animation_player.animation_name])
+	draw_sprite_sheet_clip_on_game_texture_grid(clip_name, pos, rotation, scale_x, scale_y, flip_x, flip_y)
+}

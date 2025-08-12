@@ -3,6 +3,22 @@ package rlgrid
 import rl "vendor:raylib"
 import "core:math"
 
+
+Horizontal_Justification :: enum
+{
+	Left,
+	Right,
+	Centered,
+}
+
+Vertical_Justification :: enum
+{
+	Top,
+	Bottom,
+	Centered,
+}
+
+
 get_rectangle_on_grid :: proc(rectangle: rl.Rectangle, cell_size: f32) -> rl.Rectangle
 {
 	ret := rl.Rectangle {
@@ -28,6 +44,14 @@ draw_rectangle_on_grid_right_justified :: proc(rectangle: rl.Rectangle, color: r
 	justified_rectangle.x -= rectangle.width
 	render_rectangle := get_rectangle_on_grid(justified_rectangle, cell_size)
 	rl.DrawRectangleRec(render_rectangle, color)
+}
+
+draw_rectangle_on_grid_center_justified :: proc(r: rl.Rectangle, color: rl.Color, cell_size: f32)
+{
+	justified_r := r
+	justified_r.x -= r.width/2
+	render_r := get_rectangle_on_grid(justified_r, cell_size)
+	rl.DrawRectangleRec(render_r, color)
 }
 
 
@@ -132,4 +156,54 @@ draw_text_on_grid_centered :: proc(font: rl.Font, text: cstring, pos: [2]f32, si
 		pos.y,
 	}
 	draw_text_on_grid(font, text, dst_pos, size, spacing, tint, grid_cell_size)
+}
+
+
+draw_text_on_grid_with_background :: proc(
+	font: rl.Font, 
+	text : cstring, 
+	pos: [2]f32, 
+	size: f32,
+	grid_cell_size: f32,
+	spacing: f32 = 0.0,
+	text_tint: rl.Color = rl.WHITE, background_color : rl.Color = rl.BLACK,
+	horizontal_text_justification: Horizontal_Justification = .Left,
+	vertical_text_justification: Vertical_Justification = .Top
+)
+{
+	text_dimensions := rl.MeasureTextEx(font, text, size, spacing)
+	render_pos := pos
+	switch vertical_text_justification
+	{
+		case .Top: {}
+		case .Bottom:
+		{
+			render_pos.y -= size
+		}
+		case .Centered:
+		{
+			render_pos.y -= size / 2
+		}
+	}
+	r := rl.Rectangle{render_pos.x, render_pos.y, text_dimensions.x, text_dimensions.y}
+	switch horizontal_text_justification
+	{
+		case .Left:
+		{
+			draw_rectangle_on_grid(r, background_color, grid_cell_size)
+			draw_text_on_grid(font, text, render_pos, size, spacing, text_tint, grid_cell_size)
+		}
+		case .Right:
+		{
+			draw_rectangle_on_grid_right_justified(r, background_color, grid_cell_size)
+			draw_text_on_grid_right_justified(font, text, render_pos, size, spacing, text_tint, grid_cell_size)
+
+		}
+		case .Centered:
+		{
+			draw_rectangle_on_grid_center_justified(r, background_color, grid_cell_size)
+			draw_text_on_grid_centered(font, text, render_pos, size, spacing, text_tint, grid_cell_size)
+		}
+	}
+
 }

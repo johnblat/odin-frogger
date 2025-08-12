@@ -16,13 +16,18 @@ bytes_aa_pixel_filter_shader        := #load("./pixel_filter.fs")
 
 
 global_filename_window_save_data := "window_save_data.frog"
+global_game_texture_grid_cell_size : f32 : 64
+global_number_grid_cells_axis_x    : f32 : 14
+global_number_grid_cells_axis_y    : f32 : 16
+global_game_view_pixels_width      : f32 : global_game_texture_grid_cell_size * global_number_grid_cells_axis_x
+global_game_view_pixels_height     : f32 : global_game_texture_grid_cell_size * global_number_grid_cells_axis_y
+global_countdown_timer_lose_life_duration : f32 = 30.0
+global_countdown_timer_duration_display_last_cycle_completion : f32 = 4.0
+global_countdown_timer_game_over_display: f32 = 3.0
 
-global_grid_cell_size                : f32 : 64
-global_number_grid_cells_axis_x : f32 : 14
-global_number_grid_cells_axis_y : f32 : 16
-global_game_view_pixels_width   : f32 : global_grid_cell_size * global_number_grid_cells_axis_x
-global_game_view_pixels_height  : f32 : global_grid_cell_size * global_number_grid_cells_axis_y
-
+Direction :: enum {
+	Up, Down, Left, Right
+}
 
 Window_Save_Data :: struct
 {
@@ -42,12 +47,41 @@ Collision_Behavior :: enum {
 	Kill_Frogger,
 }
 
+Otter :: struct {
+	entity: Entity,
+	timer_attack: Timer,
+}
+
+Spawn_Description :: struct {
+	pos: [2]f32,
+	speed: f32,
+	attack_speed: f32,
+}
 
 Entity_Behavior :: enum {
 	Row_Obstacle,
 	Snake,
 	Otter,
 	Alligator,
+}
+
+Snake_Mode :: enum
+{
+	On_Entity,
+	On_Median,
+}
+
+Snake_Behavior_State :: struct
+{
+	snake_mode : Snake_Mode,
+	on_entity_id : int,
+}
+
+Lerp_Position :: struct
+{
+	timer :Timer,
+	start_pos: [2]f32,
+	end_pos: [2]f32,
 }
 
 
@@ -69,9 +103,36 @@ Root_State :: enum {
 }
 
 
-// This struct contains all data we want to preserve on hot-reloads
-// a hot reload is compiling the game while it is running so we dont have to close and restart the game
-// each time a change is made to the code
+Row :: struct {
+	start_x: f32,
+	speed: f32,
+}
+
+
+Animation_Name :: enum {
+	Alligator,
+	Regular_Turtle,
+	Diving_Turtle,
+	Frogger_Dying_Hit,
+	Frogger_Dying_Drown,
+	Snake,
+}
+
+Animation_Player_Name :: enum {
+	Alligator,
+	Regular_Turtle,
+	Diving_Turtle_0,
+	Diving_Turtle_1,
+	Snake_0,
+	Snake_1,
+}
+
+Animation_Player :: struct {
+	timer: Animation_Timer,
+	fps: f32,
+	animation_name : Animation_Name,
+}
+
 Game_Memory :: struct 
 {	
 	root_state : Root_State,
@@ -108,9 +169,7 @@ Game_Memory :: struct
 
 	// frogger
 	frogger_pos       : [2]f32,
-	frogger_move_lerp_timer     : Timer,
-	frogger_move_lerp_start_pos : [2]f32,
-	frogger_move_lerp_end_pos   : [2]f32,
+	frogger_move_lerp : Lerp_Position,
 
 	frogger_sprite_rotation: f32,
 
@@ -147,8 +206,7 @@ Game_Memory :: struct
 	countdown_timer_game_over_display: f32,
 }
 
-global_countdown_timer_duration_display_last_cycle_completion : f32 = 4.0
-global_countdown_timer_game_over_display: f32 = 3.0
+
 
 gmem: ^Game_Memory
 
@@ -160,6 +218,52 @@ lilypads := [5]rl.Rectangle{
 	{6.5,  2, 1, 1},
 	{9.5,  2, 1, 1},
 	{12.5, 2, 1, 1},
+}
+
+
+animation_player_advance :: proc(animation_player: ^Animation_Player, dt: f32) -> (just_finished: bool)
+{
+	just_finished = false
+	
+	if !animation_player.timer.playing
+	{
+		return
+	}
+	
+	animation_frames := global_sprite_animations[animation_player.animation_name]
+	duration := animation_get_duration(animation_player.fps, len(animation_frames))
+	animation_player.timer.t += dt
+
+	if animation_player.timer.t > duration && !animation_player.timer.loop
+	{
+		animation_player.timer.playing = false
+		just_finished = true
+	}
+
+	return 
+}
+
+lerp_position_start :: proc(lerp: ^Lerp_Position, start_pos, end_pos: [2]f32)
+{
+	timer_start(&lerp.timer)
+	lerp.start_pos = start_pos
+	lerp.end_pos = end_pos
+}
+
+lerp_position_advance :: proc(lerp: ^Lerp_Position, dt: f32) -> (progress_pos: [2]f32)
+{
+	timer_advance(&lerp.timer, dt)
+	progress_pos = lerp_position_progress_pos(lerp^)
+	return
+}
+
+lerp_position_progress_pos :: proc(lerp: Lerp_Position) -> (progress_pos: [2]f32)
+{
+	t := timer_percentage(lerp.timer)
+	t = min(t, 1.0)
+	progress_pos.x = (1.0 - t) * lerp.start_pos.x + t * lerp.end_pos.x
+	progress_pos.y = (1.0 - t) * lerp.start_pos.y + t * lerp.end_pos.y
+	return
 }
 
 
@@ -283,447 +387,14 @@ game_init_platform :: proc()
 }
 
 
-is_frogs_on_lilypads := [5]bool{false, false, false, false, false}
-
-Row :: struct {
-	start_x: f32,
-	speed: f32,
-}
-
-rows_by_level := [?][16]Row {
-	rows_level_1,
-	rows_level_2,
-	rows_level_3,
-	rows_level_4,
-	rows_level_5,
-}
-
-
-entities_by_level := [?][]Entity {
-	entities_level_1[:],
-	entities_level_2[:],
-	entities_level_3[:],
-	entities_level_4[:],
-	entities_level_5[:],
-}
-
-
-rows_level_1 := [16]Row {
-	{start_x = 0,    speed = 0},
-	{start_x = 0,    speed = 0},
-	{start_x = 0,    speed = 0},
-	{start_x = -9,   speed = 1.2},
-	{start_x = -3.5, speed = -1.5},
-	{start_x = -10,  speed = 3},
-	{start_x = -6,   speed = 0.8},
-	{start_x = -2,   speed = -1.5},
-	{start_x = 0,    speed = 0},
-	{start_x = -2,   speed = -1.5},
-	{start_x = -1,   speed = 1},
-	{start_x = -1,   speed = -0.8},
-	{start_x = -1,   speed = 0.6},
-	{start_x = -1,   speed = -0.6},
-	{start_x = 0,    speed = 0},
-	{start_x = 0,    speed = 0},
-}
-
-
-entities_level_1 := [?]Entity {
-    { rectangle = {0    ,  3, 4, 1},   speed = 1.2,    row_id = 3,  sprite_data   = .Medium_Log,                             collision_behavior           = .Move_Frogger},
-    { rectangle = {6    ,  3, 4, 1},   speed = 1.2,    row_id = 3,  sprite_data   = .Medium_Log,                             collision_behavior           = .Move_Frogger},
-    { rectangle = {12   , 3, 4, 1},   speed  = 1.2,    row_id = 3,  sprite_data   = .Medium_Log,                             collision_behavior           = .Move_Frogger},
-    { rectangle = {18   , 3, 4, 1},   speed  = 1.2,    row_id = 3,  sprite_data   = .Medium_Log,                             collision_behavior           = .Move_Frogger},
-    { rectangle = {2    ,  4, 1, 1},   speed = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {3    ,  4, 1, 1},   speed = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {6    ,  4, 1, 1},   speed = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {7    ,  4, 1, 1},   speed = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {10   , 4, 1, 1},   speed  = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {11   , 4, 1, 1},   speed  = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {15.5 , 4, 1, 1}, speed    = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Diving_Turtle_0, collision_behavior             = .Move_Frogger },
-    { rectangle = {16.5 , 4, 1, 1}, speed    = -1.5,   row_id = 4, sprite_data     = Animation_Player_Name.Diving_Turtle_0, collision_behavior             = .Move_Frogger },
-    { rectangle = {0    ,  5, 6, 1},   speed = 3,     row_id =  5,   sprite_data = .Long_Log,                               collision_behavior           = .Move_Frogger},
-    { rectangle = {8    ,  5, 6, 1},   speed = 3,     row_id =  5,   sprite_data = .Long_Log,                               collision_behavior           = .Move_Frogger},
-    { rectangle = {16   , 5, 6, 1},   speed  = 3,     row_id =  5,   sprite_data = .Long_Log,                               collision_behavior           = .Move_Frogger},
-    { rectangle = {0    ,  6, 3, 1},   speed = 0.8,   row_id =  6,   sprite_data   = .Short_Log,                              collision_behavior           = .Move_Frogger},
-    { rectangle = {5    ,  6, 3, 1},   speed = 0.8,   row_id =  6,   sprite_data   = .Short_Log,                              collision_behavior           = .Move_Frogger},
-    { rectangle = {10   , 6, 3, 1},   speed  = 0.8,   row_id =  6,   sprite_data   = .Short_Log,                              collision_behavior           = .Move_Frogger},
-    { rectangle = {15   , 6, 3, 1},   speed  = 0.8,   row_id =  6,   sprite_data   = .Short_Log,                              collision_behavior           = .Move_Frogger},
-    { rectangle = {0    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {1    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {2    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {4    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {5    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {6    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {8    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {9    ,  7, 1, 1},   speed = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {10   , 7, 1, 1},   speed  = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Regular_Turtle,              collision_behavior = .Move_Frogger},
-    { rectangle = {12   ,   7, 1, 1}, speed  = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Diving_Turtle_1, collision_behavior             = .Move_Frogger },
-    { rectangle = {13   ,   7, 1, 1}, speed  = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Diving_Turtle_1, collision_behavior             = .Move_Frogger },
-    { rectangle = {14   ,   7, 1, 1}, speed  = -1.5,  row_id =  7, sprite_data     = Animation_Player_Name.Diving_Turtle_1, collision_behavior             = .Move_Frogger },
-    { rectangle = {1    ,   9, 2, 1},  speed = -1.5  , row_id = 9, sprite_data     = .Truck,                                  collision_behavior           = .Kill_Frogger},
-    { rectangle = {6.5  , 9, 2, 1},  speed   = -1.5  , row_id = 9, sprite_data     = .Truck,                                  collision_behavior           = .Kill_Frogger},
-    { rectangle = {1    ,  10, 1, 1},  speed = 1  ,    row_id = 10, sprite_data   = .Racecar,                                collision_behavior           = .Kill_Frogger},
-    { rectangle = {10   , 11, 1, 1},  speed  = -0.8  , row_id = 11, sprite_data     = .Purple_Car,                             collision_behavior           = .Kill_Frogger},
-    { rectangle = {6    ,  11, 1, 1},  speed = -0.8  , row_id = 11, sprite_data     = .Purple_Car,                             collision_behavior           = .Kill_Frogger},
-    { rectangle = {2    ,  11, 1, 1},  speed = -0.8  , row_id = 11, sprite_data     = .Purple_Car,                             collision_behavior           = .Kill_Frogger},
-    { rectangle = {5    ,  12, 1, 1},  speed = 0.6  ,  row_id = 12, sprite_data     = .Bulldozer,                              collision_behavior           = .Kill_Frogger},
-    { rectangle = {9    ,  12, 1, 1},  speed = 0.6  ,  row_id = 12, sprite_data     = .Bulldozer,                              collision_behavior           = .Kill_Frogger},
-    { rectangle = {13   , 12, 1, 1},  speed  = 0.6  ,  row_id = 12, sprite_data     = .Bulldozer,                              collision_behavior           = .Kill_Frogger},
-    { rectangle = {10   , 13, 1, 1},  speed  = -0.6  , row_id = 13, sprite_data     = .Taxi,                                   collision_behavior           = .Kill_Frogger},
-    { rectangle = {6    ,  13, 1, 1},  speed = -0.6  , row_id = 13, sprite_data     = .Taxi,                                   collision_behavior           = .Kill_Frogger},
-    { rectangle = {2    ,  13, 1, 1},  speed = -0.6  , row_id = 13, sprite_data     = .Taxi,                                   collision_behavior           = .Kill_Frogger},
-}
-// 15
-
-rows_level_2 := [16]Row {
-	{start_x = 0,     speed = 0},
-	{start_x = 0,     speed = 0},
-	{start_x = 0,     speed = 0},
-	{start_x = -15,   speed = 1.2},
-	{start_x = -2.5,  speed = -2},
-	{start_x = -18,   speed = 2},
-	{start_x = -3,    speed = 0.8},
-	{start_x = -2,    speed = -2},
-	{start_x = 0,     speed = 0},
-	{start_x = -3,    speed = -1.5},
-	{start_x = -1,    speed = 1},
-	{start_x = -4,    speed = -2},
-	{start_x = -2,    speed = 2},
-	{start_x = -4,    speed = -2},
-	{start_x = 0,     speed = 0},
-	{start_x = 0,     speed = 0},
-}
-
-entities_level_2 := [?]Entity {
-    { rectangle = {0,  3, 4, 1},     speed = 1.2,  row_id = 3,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {6,  3, 4, 1},     speed = 1.2,  row_id = 3,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {12, 3, 4, 1},     speed = 1.2,  row_id = 3,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {18, 3, 4, 1},     speed = 1.2,  row_id = 3,  collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {24, 3, 3, 1},     speed = 1.2,  row_id = 3,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Alligator, },
-    { rectangle = {2,  4, 1, 1},     speed = -2,   row_id = 4,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {3,  4, 1, 1},     speed = -2,   row_id = 4,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {5,  4, 1, 1},     speed = -2,   row_id = 4,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {6,  4, 1, 1},     speed = -2,   row_id = 4,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {8, 4, 1, 1},     speed = -2,    row_id = 4,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {9, 4, 1, 1},     speed = -2,    row_id = 4,  collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {11, 4, 1, 1},     speed = -2,   row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {12, 4, 1, 1},     speed = -2,   row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {15.5, 4, 1, 1},   speed = -2,   row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {16.5, 4, 1, 1},   speed = -2,   row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {0,  5, 6, 1},     speed = 2,    row_id = 5,  collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {16,  5, 6, 1},    speed = 2,    row_id = 5,  collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {0,    6, 3, 1},   speed = 0.8,  row_id = 6,   collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {5,    6, 3, 1},   speed = 0.8,  row_id = 6,   collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {10,   6, 3, 1},   speed = 0.8,  row_id = 6,   collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {2,    7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {3,    7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {4,    7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {8,    7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {9,    7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {10,   7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {12,   7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {13,   7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {14,   7, 1, 1},   speed = -2,   row_id = 7, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {1,   9, 2, 1},  speed = -1.5,   row_id = 9, collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {6.5, 9, 2, 1},  speed = -1.5,   row_id = 9, collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {12, 9, 2, 1},  speed = -1.5,    row_id = 9, collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {1,  10, 1, 1},  speed = 1  ,    row_id = 10, collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {3.5,  10, 1, 1},  speed = 1  ,  row_id = 10,  collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {0, 11, 1, 1},  speed = -2  ,    row_id = 11,   collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {2.5,  11, 1, 1},  speed = -2  , row_id = 11,   collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {6.5,  11, 1, 1},  speed = -2  , row_id = 11,   collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {12,  11, 1, 1},  speed = -2  ,  row_id = 11,   collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {0,  12, 1, 1},  speed = 2  ,    row_id = 12, collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {4,  12, 1, 1},  speed = 2  ,    row_id = 12, collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {8, 12, 1, 1},  speed = 2  ,     row_id = 12, collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {12, 12, 1, 1},  speed = 2  ,    row_id = 12, collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {0, 13, 1, 1},  speed = -2  ,    row_id = 13,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {2.5,  13, 1, 1},  speed = -2  , row_id = 13,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {6.5,  13, 1, 1},  speed = -2  , row_id = 13,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {12,  13, 1, 1},  speed = -2  ,  row_id = 13,   collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-}
-
-// 17
-
-
-rows_level_3 := [16]Row {
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-	{start_x = -18, speed = 1.2},
-	{start_x = -4,  speed = -2},
-	{start_x = -18, speed = 2},
-	{start_x = -3,  speed = 0.8},
-	{start_x = -3,  speed = -3.5},
-	{start_x = 0,   speed = 0},
-	{start_x = -3,  speed = -1.5},
-	{start_x = -1,  speed = 3},
-	{start_x = -4,  speed = -3},
-	{start_x = -1,  speed = 2},
-	{start_x = -2,  speed = -1.5},
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-}
-
-entities_level_3 := [?]Entity {
-    { rectangle = {0.5, 3, 3, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Alligator, },
-    { rectangle = {11,  3, 4, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {17,  3, 4, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {27.5, 3, 4, 1},    speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {1,  4, 1, 1},     speed = -2,     row_id = 4,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {2,  4, 1, 1},     speed = -2,     row_id = 4,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {5.5, 4, 1, 1},     speed = -2,    row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {6.5, 4, 1, 1},     speed = -2,    row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {10, 4, 1, 1},   speed = -2,       row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {11, 4, 1, 1},   speed = -2,       row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {14.5,  4, 1, 1},     speed = -2,  row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {15.5,  4, 1, 1},     speed = -2,  row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {0,  5, 6, 1},     speed = 2,      row_id = 5,     collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {16,  5, 6, 1},    speed = 2,      row_id = 5,     collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {0,    6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {5,    6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {10,   6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {0,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {1,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {2,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {5,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {6,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {7,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {10,    7, 1, 1},   speed = -3.5,  row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {11,    7, 1, 1},   speed = -3.5,  row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {12,   7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {1,   9, 2, 1},  speed = -1.5,     row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {6.5, 9, 2, 1},  speed = -1.5,     row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {12, 9, 2, 1},  speed = -1.5,      row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {1,  10, 1, 1},  speed = 3  ,      row_id = 10,     collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {5.5,  10, 1, 1},  speed = 3  ,    row_id = 10,    collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {0, 11, 1, 1},     speed = -3  ,   row_id = 11,        collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {2.5,  11, 1, 1},  speed = -3  ,   row_id = 11,     collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {6.5,  11, 1, 1},  speed = -3  ,   row_id = 11,     collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {12,  11, 1, 1},   speed = -3  ,   row_id = 11,      collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {0,  12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {4,  12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {8, 12, 1, 1},  speed = 2  ,       row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {12, 12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {0, 13, 1, 1},     speed = -1.5  , row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {4,  13, 1, 1},  speed = -1.5  ,   row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {8,  13, 1, 1},  speed = -1.5  ,   row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {12,  13, 1, 1},   speed = -1.5  , row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-}
-
-// 14
-
-rows_level_4 := [16]Row {
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-	{start_x = -18, speed = 2},
-	{start_x = -4,  speed = -2},
-	{start_x = -18, speed = 2},
-	{start_x = -10,  speed = 1.5},
-	{start_x = -3,  speed = -3.5},
-	{start_x = 0,   speed = 0},
-	{start_x = -4.5,  speed = -1.5},
-	{start_x = -5,  speed = 6},
-	{start_x = -4,  speed = -3},
-	{start_x = -1,  speed = 2},
-	{start_x = -4,  speed = -1.5},
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-}
-
-entities_level_4 := [?]Entity {
-    { rectangle = {0.5, 3, 3, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Alligator, },
-    { rectangle = {11,  3, 4, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {17,  3, 4, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {27.5, 3, 4, 1},    speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {1,  4, 1, 1},     speed = -2,     row_id = 4,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {2,  4, 1, 1},     speed = -2,     row_id = 4,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    // TODO(jalfonso): this gap is not supposed to be as big
-    { rectangle = {10, 4, 1, 1},   speed = -2,       row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {11, 4, 1, 1},   speed = -2,       row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {14.5,  4, 1, 1},     speed = -2,  row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {15.5,  4, 1, 1},     speed = -2,  row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {0,  5, 6, 1},     speed = 2,      row_id = 5,     collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {16,  5, 6, 1},    speed = 2,      row_id = 5,     collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {0,    6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {8,    6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {17,   6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {0,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {1,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {2,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {5,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {6,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {7,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {10,    7, 1, 1},   speed = -3.5,  row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {11,    7, 1, 1},   speed = -3.5,  row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {12,   7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {0,   9, 2, 1},  speed = -1.5,     row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {4.5, 9, 2, 1},  speed = -1.5,     row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {9, 9, 2, 1},  speed = -1.5,      row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {13.5, 9, 2, 1},  speed = -1.5,      row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {1,  10, 1, 1},  speed = 3  ,      row_id = 10,     collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {5.5,  10, 1, 1},  speed = 3  ,    row_id = 10,    collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {10,  10, 1, 1},  speed = 3  ,    row_id = 10,    collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {0, 11, 1, 1},     speed = -3  ,   row_id = 11,        collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {2.5,  11, 1, 1},  speed = -3  ,   row_id = 11,     collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {6.5,  11, 1, 1},  speed = -3  ,   row_id = 11,     collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {12,  11, 1, 1},   speed = -3  ,   row_id = 11,      collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {0,  12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {4,  12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {8, 12, 1, 1},  speed = 2  ,       row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {12, 12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {0, 13, 1, 1},     speed = -1.5  , row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {5,  13, 1, 1},  speed = -1.5  ,   row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {10,  13, 1, 1},  speed = -1.5  ,   row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {15,  13, 1, 1},   speed = -1.5  , row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-}
-
-rows_level_5 := [16]Row {
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-	{start_x = -18, speed = 2},
-	{start_x = -6,  speed = -2},
-	{start_x = -18, speed = 2},
-	{start_x = -10,  speed = 1.5},
-	{start_x = -3,  speed = -2},
-	{start_x = 0,   speed = 0},
-	{start_x = -6,  speed = -1.5},
-	{start_x = -5,  speed = 6},
-	{start_x = -4,  speed = -3},
-	{start_x = -2,  speed = 2},
-	{start_x = -4,  speed = -1.5},
-	{start_x = 0,   speed = 0},
-	{start_x = 0,   speed = 0},
-}
-
-entities_level_5 := [?]Entity {
-    { rectangle = {0.5, 3, 3, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Alligator, },
-    { rectangle = {17,  3, 4, 1},     speed = 1.2,   row_id = 3,    collision_behavior = .Move_Frogger,  sprite_data = .Medium_Log, },
-    { rectangle = {0,  4, 1, 1},     speed = -2,     row_id = 4,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {1,  4, 1, 1},     speed = -2,     row_id = 4,    collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {6.5, 4, 1, 1},   speed = -2,       row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {7.5, 4, 1, 1},   speed = -2,       row_id = 4,     collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_0,  },
-    { rectangle = {13,  4, 1, 1},     speed = -2,  row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {14,  4, 1, 1},     speed = -2,  row_id = 4, collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {0,  5, 6, 1},     speed = 2,      row_id = 5,     collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {16,  5, 6, 1},    speed = 2,      row_id = 5,     collision_behavior = .Move_Frogger,  sprite_data = .Long_Log, },
-    { rectangle = {0,    6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {8,    6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {17,   6, 3, 1},   speed = 0.8,    row_id = 6,      collision_behavior = .Move_Frogger,  sprite_data = .Short_Log, },
-    { rectangle = {0,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {1,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {2,   7, 1, 1},   speed = -3.5,    row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Diving_Turtle_1,  },
-    { rectangle = {7,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {8,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {9,    7, 1, 1},   speed = -3.5,   row_id = 7,      collision_behavior = .Move_Frogger,  sprite_data = Animation_Player_Name.Regular_Turtle, },
-    { rectangle = {0,   9, 2, 1},  speed = -1.5,     row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {4.5, 9, 2, 1},  speed = -1.5,     row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {9, 9, 2, 1},  speed = -1.5,      row_id = 9,      collision_behavior = .Kill_Frogger,  sprite_data = .Truck, },
-    { rectangle = {0,  10, 1, 1},  speed = 3  ,      row_id = 10,     collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {4,  10, 1, 1},  speed = 3  ,    row_id = 10,    collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {8,  10, 1, 1},  speed = 3  ,    row_id = 10,    collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {12,  10, 1, 1},  speed = 3  ,    row_id = 10,    collision_behavior = .Kill_Frogger,  sprite_data = .Racecar, },
-    { rectangle = {0, 11, 1, 1},     speed = -3  ,   row_id = 11,        collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {3.5,  11, 1, 1},  speed = -3  ,   row_id = 11,     collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {7,  11, 1, 1},  speed = -3  ,   row_id = 11,     collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {10.5,  11, 1, 1},   speed = -3  ,   row_id = 11,      collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-    { rectangle = {14,  11, 1, 1},   speed = -3  ,   row_id = 11,      collision_behavior = .Kill_Frogger,  sprite_data = .Purple_Car, },
-
-    { rectangle = {0,  12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {4,  12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {8, 12, 1, 1},  speed = 2  ,       row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {12, 12, 1, 1},  speed = 2  ,      row_id = 12,     collision_behavior = .Kill_Frogger,  sprite_data = .Bulldozer, },
-    { rectangle = {0, 13, 1, 1},     speed = -1.5  , row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {5,  13, 1, 1},  speed = -1.5  ,   row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {10,  13, 1, 1},  speed = -1.5  ,   row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-    { rectangle = {15,  13, 1, 1},   speed = -1.5  , row_id = 13,     collision_behavior = .Kill_Frogger,  sprite_data = .Taxi, },
-}
-
-Otter :: struct {
-	entity: Entity,
-	timer_attack: Timer,
-}
-
-Spawn_Description :: struct {
-	pos: [2]f32,
-	speed: f32,
-	attack_speed: f32,
-}
-
-
-otter_spawn_descriptions_level_1 := [?]Spawn_Description {}
-otter_spawn_descriptions_level_2 := [?]Spawn_Description {}
-otter_spawn_descriptions_level_3 := [?]Spawn_Description {
-	{ pos = { -3, 3 },  speed = 2 }, 
-	{ pos = { global_number_grid_cells_axis_x, 4 }, speed = -2.5 }, 
-	{ pos = { -3, 5 }, speed = 2.5  }, 
-	{ pos = { -3, 6 }, speed = 2 }, 
-	{ pos = {global_number_grid_cells_axis_x, 7 }, speed = -4 },
-}
-otter_spawn_descriptions_level_4 := [?]Spawn_Description {
-	{ pos = { -3, 3 },  speed = 2.5 }, 
-	{ pos = { global_number_grid_cells_axis_x, 4 }, speed = -2.5 }, 
-	{ pos = { -3, 5 }, speed = 2.5  }, 
-	{ pos = { -3, 6 }, speed = 2 }, 
-	{ pos = {global_number_grid_cells_axis_x, 7 }, speed = -4 },
-}
-otter_spawn_descriptions_level_5 := [?]Spawn_Description {
-	{ pos = { -3, 3 },  speed = 2.5 }, 
-	{ pos = { global_number_grid_cells_axis_x, 4 }, speed = -2.5 }, 
-	{ pos = { -3, 5 }, speed = 2.5  }, 
-	{ pos = { -3, 6 }, speed = 2 }, 
-	{ pos = {global_number_grid_cells_axis_x, 7 }, speed = -4 },
-}
-
-current_otter_spawn_data_id := 0
-
-otter_spawn_descriptions_by_level := [?][]Spawn_Description {
-	otter_spawn_descriptions_level_1[:],
-	otter_spawn_descriptions_level_2[:],
-	otter_spawn_descriptions_level_3[:],
-	otter_spawn_descriptions_level_4[:],
-	otter_spawn_descriptions_level_5[:],
-}
-
-
-otters_by_level := [?][]Otter {
-	otters_level_1[:],
-	otters_level_2[:],
-	otters_level_3[:],
-	otters_level_4[:],
-	otters_level_5[:],
-}
-
-otters_level_1 := [?]Otter{}
-otters_level_2 := [?]Otter{}
-otters_level_3 := [?]Otter{ 
-	{ entity = { rectangle = {-1, 3, 1, 1}, speed = 2 }, timer_attack = { amount = 2.0, duration = 2.0 } } 
-}
-otters_level_4 := [?]Otter{ 
-	{ entity = { rectangle = {-1, 3, 1, 1}, speed = 2 }, timer_attack = { amount = 2.0, duration = 2.0 } } 
-}
-otters_level_5 := [?]Otter{ 
-	{ entity = { rectangle = {-1, 3, 1, 1}, speed = 2 }, timer_attack = { amount = 2.0, duration = 2.0 } } 
-}
-
-
-animation_alligator_fps : f32 = 3
-animation_timer_alligator := Animation_Timer { t = 0, playing = true, loop = true }
 animation_frames_alligator := [?]Sprite_Clip_Name{ .Alligator_Mouth_Closed, .Alligator_Mouth_Open }
 alligator_hit_box_relative_mouth_open := rl.Rectangle{2, 0, 1, 1}
 
 
 animation_frames_regular_turtles := [?]Sprite_Clip_Name{ .Turtle_Frame_0, .Turtle_Frame_1, .Turtle_Frame_2 }
-animation_fps_regular_turtles : f32 = 3
-animation_timer_regular_turtles := Animation_Timer { t = 0, playing = true, loop = true }
-
 animation_frames_diving_turtles := [?]Sprite_Clip_Name{
 	.Turtle_Frame_0, .Turtle_Frame_1, .Turtle_Frame_2, .Turtle_Frame_3, .Turtle_Frame_4, .Empty, .Turtle_Frame_4, .Turtle_Frame_3, 
 }
-animation_fps_diving_turtles : f32 = animation_fps_regular_turtles
-
 
 animation_frames_frogger_dying_hit := [?]Sprite_Clip_Name {
 	.Frogger_Dying_Hit_Frame_0, .Frogger_Dying_Hit_Frame_1, .Frogger_Dying_Hit_Frame_2, .Frogger_Dying_Hit_Frame_1,
@@ -759,31 +430,8 @@ animation_frames_snake := [?]Sprite_Clip_Name {
 	.Snake_Frame_0, .Snake_Frame_1, .Snake_Frame_2, .Snake_Frame_1
 }
 
-Animation_Name :: enum {
-	Alligator,
-	Regular_Turtle,
-	Diving_Turtle,
-	Frogger_Dying_Hit,
-	Frogger_Dying_Drown,
-	Snake,
-}
 
-Animation_Player_Name :: enum {
-	Alligator,
-	Regular_Turtle,
-	Diving_Turtle_0,
-	Diving_Turtle_1,
-	Snake_0,
-	Snake_1,
-}
-
-Animation_Player :: struct {
-	timer: Animation_Timer,
-	fps: f32,
-	animation_name : Animation_Name,
-}
-
-animation_frames := [Animation_Name][]Sprite_Clip_Name {
+global_sprite_animations := [Animation_Name][]Sprite_Clip_Name {
 	.Alligator = animation_frames_alligator[:],
 	.Regular_Turtle =  animation_frames_regular_turtles[:],
 	.Diving_Turtle = animation_frames_diving_turtles[:],
@@ -802,16 +450,6 @@ animation_players := [Animation_Player_Name]Animation_Player {
 	.Snake_1         = { timer = { t = 1, playing = true, loop = true }, fps = 10, animation_name = .Snake },
 }
 
-animation_player_frogger_is_dying :=  Animation_Player { timer = { t = 0, playing = false, loop = false }, animation_name = .Frogger_Dying_Hit }
-
-animation_fps_list := [Animation_Name]f32 {
-	.Alligator = 1,
-	.Regular_Turtle = 3,
-	.Diving_Turtle = 3,
-	.Frogger_Dying_Hit = 12,
-	.Frogger_Dying_Drown = 12,
-	.Snake = 3,
-}
 
 frogger_anim_timer := Timer {
 	amount = 0.25,
@@ -828,25 +466,6 @@ fly_timer := Timer{
 	duration = 4.0,
 }
 fly_is_active : bool     = false
-
-
-global_sprite_clip_score_100 := rl.Rectangle {0, 6, 1, 1}
-global_sprite_clip_score_200 := rl.Rectangle {1, 6, 1, 1}
-
-
-
-
-Direction :: enum {
-	Up, Down, Left, Right
-}
-
-map_direction_rotation := [Direction]f32 {
-	.Up = 0,
-	.Down = 180,
-	.Left = 270,
-	.Right = 90
-}
-
 
 lily_is_active : bool = false
 lily_sprite_sheet_clip := rl.Rectangle {2, 1, 1, 1}
@@ -870,50 +489,12 @@ lily_lerp_relative_log_end_x   : f32 = 0
 
 lily_logs_to_spawn_on := [?]int{15, 17, 14, 12, 11}
 
-
-Snake_Mode :: enum
-{
-	On_Entity,
-	On_Median,
-}
-
-Snake_Behavior_State :: struct
-{
-	snake_mode : Snake_Mode,
-	on_entity_id : int,
-}
-
-snakes_by_level := [?][]Entity {
-	snakes_level_1[:],
-	snakes_level_2[:],
-	snakes_level_3[:],
-	snakes_level_4[:],
-	snakes_level_5[:],
-}
-
-snakes_level_1 := [?]Entity{}
-snakes_level_2 := [?]Entity{}
-snakes_level_3 := [?]Entity{
-	{ rectangle = {-2, 8, 2, 1}, speed = 1, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 12 } },
-}
-snakes_level_4 := [?]Entity {
-	{ rectangle = {-2, 8, 2, 1}, speed = 1.8, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 10 }, },
-}
-snakes_level_5 := [?]Entity {
-	{ rectangle = {-2, 8, 2, 1}, speed = 1, sprite_data = Animation_Player_Name.Snake_0, snake_behavior = { snake_mode = .On_Median, on_entity_id = 8 }, },
-	{ rectangle = {global_number_grid_cells_axis_x, 8, 2, 1}, speed = -1, sprite_data = Animation_Player_Name.Snake_1, snake_behavior = { snake_mode = .On_Median, on_entity_id = 9 } },
-}
-
-
-
-
 lilypad_ids_crocodile := [?]int{4, 0, 3, 1, 2, 1, 3, 0}
 current_crocodile_lilypad_id_index := 0
 
 timer_crocodile_inactive := Timer { amount = 0, duration = 6.0 }
 timer_crocodile_peek     := Timer { amount = 2.0, duration = 2.0 }
 timer_crocodile_attack   := Timer { amount = 1.0, duration = 1.0 }
-
 
 
 
@@ -989,7 +570,6 @@ move_frogger_with_intersecting_entities :: proc(frogger_pos, frogger_lerp_end_po
 // }
 
 
-global_countdown_timer_lose_life_duration : f32 = 30.0
 
 @(export)
 game_init :: proc()
@@ -1012,12 +592,10 @@ game_init :: proc()
 	gmem.dbg_is_frogger_unkillable = false
 
 	gmem.frogger_pos = [2]f32{7,14}
-	gmem.frogger_move_lerp_timer = Timer {
+	gmem.frogger_move_lerp.timer = Timer {
 		amount = frogger_move_lerp_duration,
 		duration = frogger_move_lerp_duration,
 	}
-
-	gmem.is_frogs_on_lilypads = is_frogs_on_lilypads
 
 	image_sprite_sheet := rl.LoadImageFromMemory(".png", &bytes_image_data_sprite_sheet_bytes[0], i32(len(bytes_image_data_sprite_sheet_bytes)))
 	image_background   := rl.LoadImageFromMemory(".png", &bytes_image_data_background[0], i32(len(bytes_image_data_background)))
@@ -1040,7 +618,7 @@ game_init :: proc()
 	gmem.timer_is_active_score_100 = timer_init(2.0, false)
 	gmem.timer_is_active_score_200 = timer_init(2.0, false)
 
-	gmem.animation_player_frogger_is_dying = { timer = { t = 0, playing = false, loop = false }, animation_name = .Frogger_Dying_Hit }
+	gmem.animation_player_frogger_is_dying = { timer = { t = 0, playing = false, loop = false }, fps = 12, animation_name = .Frogger_Dying_Hit }
 
 	gmem.dbg_camera_zoom = 1.0
 
@@ -1073,7 +651,7 @@ frogger_reset :: proc()
 	gmem.frogger_sprite_rotation = 0.0
 	gmem.score_frogger_max_y_tracker = pos.y - 1
 	gmem.is_lily_on_frogger = false
-	timer_stop(&gmem.frogger_move_lerp_timer)
+	timer_stop(&gmem.frogger_move_lerp.timer)
 	gmem.countdown_timer_lose_life = global_countdown_timer_lose_life_duration
 }
 
@@ -1082,7 +660,7 @@ frogger_start_dying :: proc(animation_name: Animation_Name)
 {
 	gmem.animation_player_frogger_is_dying.animation_name = animation_name
 	gmem.is_lily_on_frogger = false
-	timer_stop(&gmem.frogger_move_lerp_timer)
+	timer_stop(&gmem.frogger_move_lerp.timer)
 	animation_timer_start(&gmem.animation_player_frogger_is_dying.timer)
 	if gmem.lives != 0
 	{
@@ -1136,11 +714,11 @@ root_state_game :: proc()
 			}
 			else if rl.IsKeyPressed(.LEFT_BRACKET)
 			{
-				gmem.dbg_camera_offset_to_left -= global_grid_cell_size
+				gmem.dbg_camera_offset_to_left -= global_game_texture_grid_cell_size
 			}
 			else if rl.IsKeyPressed(.RIGHT_BRACKET)
 			{
-				gmem.dbg_camera_offset_to_left += global_grid_cell_size
+				gmem.dbg_camera_offset_to_left += global_game_texture_grid_cell_size
 			}
 
 			if rl.IsKeyDown(.MINUS) && rl.IsKeyDown(.EQUAL)
@@ -1250,7 +828,7 @@ root_state_game :: proc()
 	if should_run_simulation
 	{	
 
-		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp_timer)  && !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause && gmem.countdown_timer_game_over_display == 0
+		can_frogger_request_move := timer_is_complete(gmem.frogger_move_lerp.timer)  && !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) && timer_is_complete(gmem.level_end_timer) && !gmem.pause && gmem.countdown_timer_game_over_display == 0
 		if can_frogger_request_move  
 		{
 			frogger_move_direction := [2]f32{0,0}
@@ -1306,23 +884,17 @@ root_state_game :: proc()
 
 					if !(frogger_next_pos.x >= gmem.frogger_pos.x)
 					{
-						timer_start(&gmem.frogger_move_lerp_timer)
-						gmem.frogger_move_lerp_start_pos = gmem.frogger_pos
-						gmem.frogger_move_lerp_end_pos = frogger_next_pos
+						lerp_position_start(&gmem.frogger_move_lerp, gmem.frogger_pos, frogger_next_pos)
 					}
 				}
 				else if will_frogger_be_out_of_right_bounds && !(frogger_center_pos.x > global_number_grid_cells_axis_x)
 				{
-					timer_start(&gmem.frogger_move_lerp_timer)
-					gmem.frogger_move_lerp_start_pos = gmem.frogger_pos
 					frogger_next_pos.x = global_number_grid_cells_axis_x - 1
-					gmem.frogger_move_lerp_end_pos = frogger_next_pos
+					lerp_position_start(&gmem.frogger_move_lerp, gmem.frogger_pos, frogger_next_pos)
 				}
 				else if !will_frogger_be_out_of_bounds_on_next_move
 				{
-					timer_start(&gmem.frogger_move_lerp_timer)
-					gmem.frogger_move_lerp_start_pos = gmem.frogger_pos
-					gmem.frogger_move_lerp_end_pos = frogger_next_pos
+					lerp_position_start(&gmem.frogger_move_lerp, gmem.frogger_pos, frogger_next_pos)
 				}
 			}
 		}
@@ -1422,14 +994,10 @@ root_state_game :: proc()
 
 		}
 		
-		should_move_frogger := timer_is_playing(gmem.frogger_move_lerp_timer)
+		should_move_frogger := timer_is_playing(gmem.frogger_move_lerp.timer)
 		if should_move_frogger 
 		{
-			timer_advance(&gmem.frogger_move_lerp_timer, frame_time)
-			t := timer_percentage(gmem.frogger_move_lerp_timer)
-			t = min(t, 1.0)
-			gmem.frogger_pos.x = (1.0 - t) * gmem.frogger_move_lerp_start_pos.x + t * gmem.frogger_move_lerp_end_pos.x
-			gmem.frogger_pos.y = (1.0 - t) * gmem.frogger_move_lerp_start_pos.y + t * gmem.frogger_move_lerp_end_pos.y
+			gmem.frogger_pos = lerp_position_advance(&gmem.frogger_move_lerp, frame_time) 
 		}
 
 
@@ -1439,9 +1007,7 @@ root_state_game :: proc()
 			timer_advance(&gmem.timer_is_active_score_200, frame_time)
 			for &animation_player in animation_players
 			{
-				animation := animation_frames[animation_player.animation_name]
-				animation_fps := animation_fps_list[animation_player.animation_name]
-				animation_timer_advance(&animation_player.timer, len(animation), animation_fps, frame_time)
+				animation_player_advance(&animation_player, frame_time)
 			}
 		}
 
@@ -1449,21 +1015,15 @@ root_state_game :: proc()
 		{ // frogger death animation
 			if animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)
 			{
-				animation := animation_frames[animation_player_frogger_is_dying.animation_name]
-				animation_fps := animation_fps_list[animation_player_frogger_is_dying.animation_name]
-				animation_timer_advance(&gmem.animation_player_frogger_is_dying.timer, len(animation), animation_fps, frame_time)
-				did_complete := animation_timer_is_complete(gmem.animation_player_frogger_is_dying.timer, len(animation), animation_fps)
-				if did_complete && gmem.lives != 0
+				just_completed := animation_player_advance(&gmem.animation_player_frogger_is_dying, frame_time)
+				if just_completed && gmem.lives != 0
 				{
 					frogger_reset()
 				}
-				else if did_complete && gmem.lives == 0
+				else if just_completed && gmem.lives == 0
 				{
 					frogger_reset()
 					gmem.countdown_timer_game_over_display = global_countdown_timer_game_over_display
-					// root_state_main_menu_enter()
-					// return // don't process anything else here
-					
 				}
 			}			
 		}
@@ -1496,7 +1056,7 @@ root_state_game :: proc()
 		should_process_moving_frogger_with_intersecting_entities := !animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) 
 		if should_process_moving_frogger_with_intersecting_entities
 		{ 
-			gmem.frogger_pos, gmem.frogger_move_lerp_end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp_end_pos, entities, frame_time)
+			gmem.frogger_pos, gmem.frogger_move_lerp.end_pos = move_frogger_with_intersecting_entities(gmem.frogger_pos, gmem.frogger_move_lerp.end_pos, entities, frame_time)
 		}
 
 		{ // frogger get points for moving up
@@ -1866,7 +1426,7 @@ root_state_game :: proc()
 			}
 
 			is_frogger_on_safe_entity := false
-			is_frogger_moving := !timer_is_complete(gmem.frogger_move_lerp_timer)
+			is_frogger_moving := !timer_is_complete(gmem.frogger_move_lerp.timer)
 			is_frogger_in_river_region := frogger_center_pos.y > river.y && frogger_center_pos.y < river.y + river.height
 			is_frogger_in_riverbed := rl.CheckCollisionPointRec(frogger_center_pos, riverbed)
 
@@ -1905,13 +1465,11 @@ root_state_game :: proc()
 					{
 						animation_player_name := sd
 						animation_player := animation_players[animation_player_name]
-						animation_fps := animation_fps_list[animation_player.animation_name]
 
-						clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_fps, animation_frames[animation_player.animation_name])
+						clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_player.fps, global_sprite_animations[animation_player.animation_name])
 
 						if animation_player.animation_name == .Alligator
 						{
-							// clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_fps, animation_frames[animation_player.animation_name])
 							if clip == .Alligator_Mouth_Open
 							{
 								hit_box := alligator_hit_box_relative_mouth_open
@@ -2035,7 +1593,7 @@ root_state_game :: proc()
 
 
 		{ // draw background
-			scale : f32 =  global_grid_cell_size / global_sprite_sheet_cell_size
+			scale : f32 =  global_game_texture_grid_cell_size / global_sprite_sheet_cell_size
 			rl.DrawTextureEx(gmem.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
@@ -2043,26 +1601,31 @@ root_state_game :: proc()
 		if should_display_last_cycle_time 
 		{ 
 			text := fmt.ctprint("TIME:", gmem.last_cycle_completion_in_seconds)
-			size : f32= 0.7
-			text_dimensions := rl.MeasureTextEx(gmem.font, text, size, 0)
-			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.15}
-			leftmost_x := center_screen_on_median.x - text_dimensions.x/2
-			r := rl.Rectangle{leftmost_x, 8.15, text_dimensions.x, size}
-			rlgrid.draw_rectangle_on_grid(r, rl.BLACK, global_grid_cell_size)
-			rlgrid.draw_text_on_grid_centered(gmem.font, text, center_screen_on_median, size, 0, rl.RED, global_grid_cell_size)
+			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
+			rlgrid.draw_text_on_grid_with_background(
+				gmem.font, 
+				text, 
+				center_screen_on_median, 
+				0.7, 
+				global_game_texture_grid_cell_size, 
+				text_tint = rl.RED, background_color = rl.BLACK, 
+				horizontal_text_justification = .Centered, vertical_text_justification = .Centered
+			)
 		}
 
 		should_display_game_over := gmem.countdown_timer_game_over_display > 0.0
 		if should_display_game_over 
 		{ 
-			text : cstring = "GAME OVER"
-			size : f32= 0.7
-			text_dimensions := rl.MeasureTextEx(gmem.font, text, size, 0)
-			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.15}
-			leftmost_x := center_screen_on_median.x - text_dimensions.x/2
-			r := rl.Rectangle{leftmost_x, 8.15, text_dimensions.x, size}
-			rlgrid.draw_rectangle_on_grid(r, rl.BLACK, global_grid_cell_size)
-			rlgrid.draw_text_on_grid_centered(gmem.font, text, center_screen_on_median, size, 0, rl.RED, global_grid_cell_size)
+			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
+			rlgrid.draw_text_on_grid_with_background(
+				gmem.font, 
+				"GAME OVER", 
+				center_screen_on_median, 
+				0.7, 
+				global_game_texture_grid_cell_size, 
+				text_tint = rl.RED, background_color = rl.BLACK, 
+				horizontal_text_justification = .Centered, vertical_text_justification = .Centered
+			)
 		}
 
 
@@ -2073,15 +1636,14 @@ root_state_game :: proc()
 				{
 					case Sprite_Clip_Name:
 					{
-						draw_sprite_sheet_clip_on_grid(sd, entity.rectangle, global_grid_cell_size, 0)
+						pos := [2]f32{entity.rectangle.x, entity.rectangle.y}
+						draw_sprite_sheet_clip_on_game_texture_grid(sd, pos)
 					}
 					case Animation_Player_Name:
 					{
-						animation_player_id := sd
 						animation_player := animation_players[sd]
-						animation_fps := animation_fps_list[animation_player.animation_name]
-						clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_fps, animation_frames[animation_player.animation_name])
-						draw_sprite_sheet_clip_on_grid(clip, entity.rectangle, global_grid_cell_size, 0)
+						pos := [2]f32{entity.rectangle.x, entity.rectangle.y}
+						draw_sprite_sheet_clip_on_game_texture_grid_from_animation_player(animation_player, pos)
 					}
 				}
 			}
@@ -2107,24 +1669,25 @@ root_state_game :: proc()
 							flip_x = true
 						}
 						animation_player := animation_players[sd]
-						clip := animation_get_frame_sprite_clip_id(animation_player.timer.t, animation_player.fps, animation_frames[animation_player.animation_name])
-						draw_sprite_sheet_clip_on_grid(clip, r, global_grid_cell_size, 0, flip_x, false)						
+						pos := [2]f32{r.x, r.y}
+						draw_sprite_sheet_clip_on_game_texture_grid_from_animation_player(animation_player, pos, flip_x = flip_x)					
 					}
 				}
 			}
 		}
 
 		{ // draw crocodile
-			lilypad_rectangle := lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]] 
+			lilypad_rectangle := lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]]
+			lilypad_pos := [2]f32{lilypad_rectangle.x, lilypad_rectangle.y}
 			is_frog_here := gmem.is_frogs_on_lilypads[lilypad_ids_crocodile[current_crocodile_lilypad_id_index]]
 
 			if timer_is_playing(timer_crocodile_peek) && !is_frog_here
 			{
-				draw_sprite_sheet_clip_on_grid(.Crocodile_Head_Peek, lilypad_rectangle, global_grid_cell_size, 0)
+				draw_sprite_sheet_clip_on_game_texture_grid(.Crocodile_Head_Peek, lilypad_pos)
 			}
 			else if timer_is_playing(timer_crocodile_attack) && !is_frog_here
 			{
-				draw_sprite_sheet_clip_on_grid(.Crocodile_Head_Attack, lilypad_rectangle, global_grid_cell_size, 0)
+				draw_sprite_sheet_clip_on_game_texture_grid(.Crocodile_Head_Attack, lilypad_pos)
 			}
 		}
 
@@ -2138,11 +1701,11 @@ root_state_game :: proc()
 				}
 				if timer_is_playing(otter.timer_attack)
 				{
-					draw_sprite_sheet_clip_on_grid(.Otter_Attacking, otter.entity.rectangle, global_grid_cell_size, 0, flip_x, false)
+					draw_sprite_sheet_clip_on_grid(.Otter_Attacking, otter.entity.rectangle, global_game_texture_grid_cell_size, 0, flip_x, false)
 				}
 				else
 				{
-					draw_sprite_sheet_clip_on_grid(.Otter_Peek, otter.entity.rectangle, global_grid_cell_size, 0, flip_x, false)
+					draw_sprite_sheet_clip_on_grid(.Otter_Peek, otter.entity.rectangle, global_game_texture_grid_cell_size, 0, flip_x, false)
 				}
 			}
 
@@ -2153,7 +1716,7 @@ root_state_game :: proc()
 			clip := fly_is_active ? global_sprite_sheet_clips[.Fly] : rl.Rectangle {}
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_grid_cell_size, 0)
+			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_game_texture_grid_cell_size, 0)
 		}
 
 		
@@ -2168,98 +1731,88 @@ root_state_game :: proc()
 					frog_p : f32 = f32(i) / f32(len(lilypads))
 					if progress_of_level_end_timer == 1
 					{
-						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
+						rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_game_texture_grid_cell_size, 0)
 					}
 					else
 					{
 						if frog_p >= progress_of_level_end_timer
 						{
-							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
+							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Closed_Mouth], global_sprite_sheet_cell_size,  lp, global_game_texture_grid_cell_size, 0)
 						}
 						else
 						{
-							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Open_Mouth], global_sprite_sheet_cell_size,  lp, global_grid_cell_size, 0)
+							rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_sheet_clips[.Happy_Frog_Open_Mouth], global_sprite_sheet_cell_size,  lp, global_game_texture_grid_cell_size, 0)
 						}
 					}
 				}
 			}
 		}
 
-		is_game_over := gmem.countdown_timer_game_over_display > 0 
-		if !is_game_over 
-		{ // draw frogger
-			anim_timer    : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? gmem.animation_player_frogger_is_dying.timer.t     : frogger_anim_timer.amount
-			anim_fps      : f32 =    animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_fps_list[gmem.animation_player_frogger_is_dying.animation_name]       : 12.0 
-			frames :[]Sprite_Clip_Name = animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? animation_frames[gmem.animation_player_frogger_is_dying.animation_name ] : frogger_anim_frames[:]
-			rotation : f32         = animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer) ? 0                            : gmem.frogger_sprite_rotation
-			
-			clip := animation_get_frame_sprite_clip_id(anim_timer, anim_fps, frames)
-			rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-
-			draw_sprite_sheet_clip_on_grid(clip, rectangle, global_grid_cell_size, rotation)
+		should_draw_frogger := gmem.countdown_timer_game_over_display == 0 
+		if should_draw_frogger 
+		{
+			if animation_timer_is_playing(gmem.animation_player_frogger_is_dying.timer)
+			{
+				draw_sprite_sheet_clip_on_game_texture_grid_from_animation_player(gmem.animation_player_frogger_is_dying, gmem.frogger_pos)
+			}
+			else
+			{
+				clip := animation_get_frame_sprite_clip_id(frogger_anim_timer.amount, 12, frogger_anim_frames[:])
+				draw_sprite_sheet_clip_on_game_texture_grid(clip, gmem.frogger_pos, gmem.frogger_sprite_rotation)
+			}
 		}
 
 		
 		{ // draw lily
 			if gmem.is_lily_on_frogger
 			{
-				dst_rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
+				lily_pos := gmem.frogger_pos
 				rotation := gmem.frogger_sprite_rotation
 				if rotation == 0.0
 				{
-					dst_rectangle.y += 0.15
+					lily_pos.y += 0.15
 				}
 				else if rotation == 90.0
 				{
-					dst_rectangle.x -= 0.15
+					lily_pos.x -= 0.15
 				}
 				else if rotation == 180.0
 				{
-					dst_rectangle.y -= 0.15
+					lily_pos.y -= 0.15
 				}
 				else if rotation == 270.0
 				{
-					dst_rectangle.x += 0.15
+					lily_pos.x += 0.15
 				}
-				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip, global_sprite_sheet_cell_size,  dst_rectangle, global_grid_cell_size, rotation)
+				draw_sprite_sheet_clip_on_game_texture_grid(.Lily_Frame_0, lily_pos, rotation = rotation)
 			}
 			else 
 			{
-				log_that_lily_is_on := lily_logs_to_spawn_on[gmem.level_index]
-				log := entities[log_that_lily_is_on]
-				lily_world_rectangle := rl.Rectangle{
-					log.rectangle.x + lily_relative_log_pos_x,
-					log.rectangle.y,
-					lily_width,
-					lily_height
-				}
-				rotation := map_direction_rotation[lily_direction]
-				rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, lily_sprite_sheet_clip,  global_sprite_sheet_cell_size, lily_world_rectangle, global_grid_cell_size, rotation)
+				entity_that_lily_is_on := lily_logs_to_spawn_on[gmem.level_index]
+				entity := entities[entity_that_lily_is_on]
+				lily_pos := [2]f32{entity.rectangle.x + lily_relative_log_pos_x, entity.rectangle.y}
+				direction_rotation_map := [Direction]f32 { .Up = 0, .Down = 180, .Right = 90, .Left = 270}
+				rotation : f32 = direction_rotation_map[lily_direction]
+				draw_sprite_sheet_clip_on_game_texture_grid(.Lily_Frame_0, lily_pos, rotation = rotation)
 			}
 		}
 
 		if timer_is_playing(gmem.timer_is_active_score_100)
 		{
-			dst_rect := rl.Rectangle {gmem.pos_score_100.x, gmem.pos_score_100.y, 1, 1}
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_100,  global_sprite_sheet_cell_size, dst_rect, global_grid_cell_size, 0)
+			draw_sprite_sheet_clip_on_game_texture_grid(.Score_100, gmem.pos_score_100)
 		}
 
 		if timer_is_playing(gmem.timer_is_active_score_200)
 		{
-			dst_rect := rl.Rectangle {gmem.pos_score_200.x, gmem.pos_score_200.y, 1, 1}
-			rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, global_sprite_clip_score_200,  global_sprite_sheet_cell_size, dst_rect, global_grid_cell_size, 0)			
+			draw_sprite_sheet_clip_on_game_texture_grid(.Score_200, gmem.pos_score_200)
 		}
 
 		{ // lives
 			for i in 0 ..< gmem.lives
 			{
 				scale : f32 = 0.7
-
-				dst_rectangle := rl.Rectangle{f32(i) * scale, global_number_grid_cells_axis_y - 1, 1, 1}
-				dst_rectangle.width *= scale
-				dst_rectangle.height *= scale
-				draw_sprite_sheet_clip_on_grid(.Frogger_Frame_0, dst_rectangle, global_grid_cell_size, 0.0)
-
+				pos := [2]f32{f32(i) * scale, global_number_grid_cells_axis_y - 1}
+				draw_sprite_sheet_clip_on_game_texture_grid(.Frogger_Frame_0, pos, scale_x = scale, scale_y = scale)
 			}
 		}
 
@@ -2269,7 +1822,7 @@ root_state_game :: proc()
 		{ 	
 			for x : f32 = -camera.offset.x; x < global_number_grid_cells_axis_x; x += 1 
 			{
-				render_x := x * global_grid_cell_size
+				render_x := x * global_game_texture_grid_cell_size
 				render_start_y : f32 = 0
 				render_end_y := global_game_view_pixels_height
 				rl.DrawLineV([2]f32{render_x, render_start_y}, [2]f32{render_x, render_end_y}, rl.WHITE)
@@ -2277,7 +1830,7 @@ root_state_game :: proc()
 
 			for y : f32 = 0; y < global_number_grid_cells_axis_y; y += 1 
 			{
-				render_y := y * global_grid_cell_size
+				render_y := y * global_game_texture_grid_cell_size
 				render_start_x : f32 = -camera.offset.x
 				render_end_x := global_game_view_pixels_width
 				rl.DrawLineV([2]f32{render_start_x, render_y}, [2]f32{render_end_x, render_y}, rl.WHITE)
@@ -2288,14 +1841,14 @@ root_state_game :: proc()
 		if gmem.dbg_show_entity_bounding_rectangles
 		{	
 			frogger_rectangle := rl.Rectangle{gmem.frogger_pos.x, gmem.frogger_pos.y, 1, 1}
-			rlgrid.draw_rectangle_lines_on_grid(frogger_rectangle, 4, rl.GREEN, global_grid_cell_size)
+			rlgrid.draw_rectangle_lines_on_grid(frogger_rectangle, 4, rl.GREEN, global_game_texture_grid_cell_size)
 		}
 
 		if gmem.dbg_show_level
 		{
 			text_level := fmt.ctprintf("level: %d", gmem.level_index + 1)
 			text_pos_level := [2]f32 {1, 8}
-			rlgrid.draw_text_on_grid(gmem.font, text_level, text_pos_level, 0.7, 0, rl.WHITE, global_grid_cell_size)
+			rlgrid.draw_text_on_grid(gmem.font, text_level, text_pos_level, 0.7, 0, rl.WHITE, global_game_texture_grid_cell_size)
 		}
 
 		
@@ -2304,7 +1857,7 @@ root_state_game :: proc()
 
 			one_up_pos := [2]f32{4,0}
 
-			rlgrid.draw_text_on_grid_right_justified(gmem.font, "1-UP", one_up_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
+			rlgrid.draw_text_on_grid_right_justified(gmem.font, "1-UP", one_up_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_game_texture_grid_cell_size))
 
 			score_text := fmt.ctprintf("%05d", gmem.score)
 			score_text_pos := [2]f32 {
@@ -2312,7 +1865,7 @@ root_state_game :: proc()
 				one_up_pos.y + heads_up_display_font_size
 			}
 
-			rlgrid.draw_text_on_grid_right_justified(gmem.font, score_text, score_text_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_grid_cell_size))
+			rlgrid.draw_text_on_grid_right_justified(gmem.font, score_text, score_text_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_game_texture_grid_cell_size))
 		}
 
 		{ // countdown timer
@@ -2326,7 +1879,7 @@ root_state_game :: proc()
 			{
 				color = rl.RED
 			}
-			rlgrid.draw_rectangle_on_grid_right_justified(timer_rectangle, color, global_grid_cell_size)
+			rlgrid.draw_rectangle_on_grid_right_justified(timer_rectangle, color, global_game_texture_grid_cell_size)
 		}
 
 		rl.EndMode2D()
@@ -2352,18 +1905,18 @@ root_state_main_menu :: proc()
 
 	rl.ClearBackground(rl.BLACK)
 	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 2}
-	rlgrid.draw_text_on_grid_centered(gmem.font, "FROGGER", title_centered_pos, 2, 0, rl.GREEN, global_grid_cell_size )
+	rlgrid.draw_text_on_grid_centered(gmem.font, "FROGGER", title_centered_pos, 2, 0, rl.GREEN, global_game_texture_grid_cell_size )
 	title_centered_pos.y += 2
-	// rlgrid.draw_text_on_grid_centered(gmem.font, "PRO", title_centered_pos, 2, 0, rl.GREEN, global_grid_cell_size )
+	// rlgrid.draw_text_on_grid_centered(gmem.font, "PRO", title_centered_pos, 2, 0, rl.GREEN, global_game_texture_grid_cell_size )
 
 	press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
-	rlgrid.draw_text_on_grid_centered(gmem.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_grid_cell_size)
+	rlgrid.draw_text_on_grid_centered(gmem.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_game_texture_grid_cell_size)
 
 	credits_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, global_number_grid_cells_axis_y - 3}
-	rlgrid.draw_text_on_grid_centered(gmem.font, "a fanmade frogger remake", credits_centered_pos, 0.3, 0, rl.WHITE, global_grid_cell_size)
+	rlgrid.draw_text_on_grid_centered(gmem.font, "a fanmade frogger remake", credits_centered_pos, 0.3, 0, rl.WHITE, global_game_texture_grid_cell_size)
 
 	credits_centered_pos.y += 0.3
-	// rlgrid.draw_text_on_grid_centered(gmem.font, "code by john blat", credits_centered_pos, 0.3, 0, rl.WHITE, global_grid_cell_size)
+	// rlgrid.draw_text_on_grid_centered(gmem.font, "code by john blat", credits_centered_pos, 0.3, 0, rl.WHITE, global_game_texture_grid_cell_size)
 
 }
 
