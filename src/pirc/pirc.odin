@@ -126,6 +126,22 @@ render_texture :: proc(cmds : ^[dynamic]Cmd, texture : Texture, pos : [2]f32, co
 	append(cmds, cmd)
 }
 
+render_texture_ex :: proc(
+	cmds : ^[dynamic]Cmd,
+	texture : Texture,
+	pos : [2]f32,
+	scale : f32 = 1,
+	color : [4]u8 = { 255, 255, 255, 255 },
+)
+{
+	render_texture_clip_ex(
+		cmds, 
+		texture, 
+		pos, 
+		0, 0, texture.w * scale, texture.h * scale, 
+	)	
+}
+
 
 render_texture_clip :: proc(cmds : ^[dynamic]Cmd, texture : Texture, pos : [2]f32, clip_x, clip_y, clip_w, clip_h : f32, color : [4]u8 = { 255, 255, 255, 255 } )
 {

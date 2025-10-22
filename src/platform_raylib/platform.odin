@@ -1,6 +1,6 @@
 package platform_raylib
 
-
+import "core:c"
 import "core:fmt"
 import "core:mem"
 import "core:strings"
@@ -84,6 +84,7 @@ free_memory :: proc()
 @(export)
 init :: proc()
 {
+	p_state  = new(P_State)
 	default_window_width : i32 = 224 * 4
 	default_window_height : i32 = 256 * 4
 
@@ -156,6 +157,8 @@ init :: proc()
 	{
 		p_state.font_map[u32(desc.font_id)] = rl.LoadFontFromMemory(".otf", &desc.font_data[0], i32(len(desc.font_data)), 256, nil, 0)
 	}
+
+	game.game_init()
 }
 
 
@@ -252,4 +255,44 @@ render :: proc()
 	rl.DrawTexturePro(p_state.render_target.texture, src, dst, [2]f32{0,0}, 0, rl.WHITE)
 
 	rl.EndDrawing()
+}
+
+@(export)
+platform_shutdown :: proc()
+{
+	when ODIN_OS != .JS { // no need to save this in web
+
+		window_pos    := rl.GetWindowPosition()
+		screen_width  := rl.GetScreenWidth()
+		screen_height := rl.GetScreenHeight()
+
+		window_save_data := Window_Save_Data {i32(window_pos.x), i32(window_pos.y), screen_width, screen_height}
+		bytes_window_save_data := mem.ptr_to_bytes(&window_save_data)
+
+		ok := game.write_entire_file(global_filename_window_save_data, bytes_window_save_data)
+		if !ok
+		{
+			fmt.printfln("Error opening/creating Window Save Data File")
+		}
+		// file_window_save_data, err := os2.open(global_filename_window_save_data, {.Write, .Create})
+		// if err != nil
+		// {
+		// 	fmt.printfln("Error opening/creating Window Save Data File: %v", err)
+		// }
+		// n_bytes_written, write_err := os2.write(file_window_save_data, bytes_window_save_data)
+		// if write_err != nil
+		// {
+		// 	fmt.printfln("Error saving Window Save Data: %v", write_err)
+		// }
+		// did_not_write_all_bytes :=  n_bytes_written != size_of(window_save_data)
+		// if did_not_write_all_bytes
+		// {
+		// 	fmt.printfln("Error saving Window Save Data: number bytes written = %v, number bytes expected = %v", n_bytes_written, size_of(window_save_data))
+		// }
+	}
+}
+
+
+parent_window_size_changed :: proc(w, h: int) {
+	rl.SetWindowSize(c.int(w), c.int(h))
 }
