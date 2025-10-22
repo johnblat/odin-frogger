@@ -1,4 +1,3 @@
-
 package game
 
 rows_by_level := [?][16]Row {

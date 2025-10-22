@@ -1,7 +1,7 @@
 package main
 
 import rl "vendor:raylib"
-import game ".."
+import game "../game"
 
 
 main :: proc () {

@@ -4,6 +4,29 @@ import "core:math"
 import rl "vendor:raylib"
 
 
+animation_player_advance :: proc(animation_player: ^Animation_Player, dt: f32) -> (just_finished: bool)
+{
+	just_finished = false
+	
+	if !animation_player.timer.playing
+	{
+		return
+	}
+	
+	animation_frames := global_sprite_animations[animation_player.animation_name]
+	duration := animation_get_duration(animation_player.fps, len(animation_frames))
+	animation_player.timer.t += dt
+
+	if animation_player.timer.t > duration && !animation_player.timer.loop
+	{
+		animation_player.timer.playing = false
+		just_finished = true
+	}
+
+	return 
+}
+
+
 animation_get_current_frame :: proc(t, fps: f32, number_of_frames: int) -> int
 {
 	ret := int(math.mod(t * fps, f32(number_of_frames)))

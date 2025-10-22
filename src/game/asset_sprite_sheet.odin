@@ -1,11 +1,13 @@
 package game
 
 import rl "vendor:raylib"
-import "./rlgrid"
+import "../rlgrid"
+import pirc "../pirc"
 
 global_sprite_sheet_cell_size : f32 = 16
-bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
+// bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_modified.png")
 // bytes_image_data_sprite_sheet_bytes := #load("../assets/frogger_sprite_sheet_colton.png")
+
 
 
 Sprite_Clip_Name ::  enum {
@@ -54,7 +56,7 @@ Sprite_Clip_Name ::  enum {
 }
 
 
-global_sprite_sheet_clips := [Sprite_Clip_Name]rl.Rectangle {
+global_sprite_sheet_clips := [Sprite_Clip_Name]pirc.Rectangle {
 	.Truck                        = {5, 0, 2, 1},	
 	.Racecar                      = {8, 0, 1, 1},
 	.Purple_Car                   = {7, 0, 1, 1},
@@ -99,10 +101,22 @@ global_sprite_sheet_clips := [Sprite_Clip_Name]rl.Rectangle {
 	.Empty                        = {0, 0, 0, 0},
 }
 
-draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectangle: rl.Rectangle, dst_grid_cell_size, rotation: f32, flip_x : bool = false, flip_y : bool = false )
+
+draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectangle: pirc.Rectangle, grid_unit_size, rotation: f32, flip_x : bool = false, flip_y : bool = false )
 {
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
-	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, dst_grid_cell_size, rotation, flip_x, flip_y)
+	pirc.grid_render_texture_clip(
+		cmds = &g_state.render_cmds,
+		tex = g_state.texture_sprite_sheet,
+		pos = [2]f32{ dst_rectangle.x, dst_rectangle.y },
+		src_rect = pirc.Rectangle{ rectangle_clip.x, rectangle_clip.y, rectangle_clip.w, rectangle_clip.h },
+		grid_unit_size = grid_unit_size,
+		color = { 255, 255, 255, 255 },
+		scale = { dst_rectangle.w, dst_rectangle.h },
+		rotation = rotation,
+		flip_x = flip_x, flip_y = flip_y
+	)
+	// rlgrid.draw_grid_texture_clip_on_grid(g_state.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, grid_unit_size, rotation, flip_x, flip_y)
 }
 
 draw_sprite_sheet_clip_on_game_texture_grid :: proc(
@@ -114,8 +128,25 @@ draw_sprite_sheet_clip_on_game_texture_grid :: proc(
 )
 {
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
-	dst_rectangle := rl.Rectangle{pos.x, pos.y, rectangle_clip.width * scale_x, rectangle_clip.height * scale_y}
-	rlgrid.draw_grid_texture_clip_on_grid(gmem.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, global_game_texture_grid_cell_size, rotation, flip_x, flip_y)
+	dst_rectangle := rl.Rectangle{pos.x, pos.y, rectangle_clip.w * scale_x, rectangle_clip.h * scale_y}
+	src_rect := pirc.Rectangle { 
+		rectangle_clip.x * global_sprite_sheet_cell_size,
+		rectangle_clip.y * global_sprite_sheet_cell_size,
+		rectangle_clip.w * global_sprite_sheet_cell_size,
+		rectangle_clip.h * global_sprite_sheet_cell_size,
+	}
+	pirc.grid_render_texture_clip(
+		cmds = &g_state.render_cmds,
+		tex = g_state.texture_sprite_sheet,
+		pos = pos,
+		src_rect = src_rect,
+		grid_unit_size = global_game_texture_grid_cell_size,
+		color = {255, 255, 255, 255},
+		scale = { scale_x, scale_y },
+		rotation = rotation,
+		flip_x = flip_x, flip_y = flip_y
+	)
+	// rlgrid.draw_grid_texture_clip_on_grid(g_state.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, global_game_texture_grid_cell_size, rotation, flip_x, flip_y)
 }
 
 draw_sprite_sheet_clip_on_game_texture_grid_from_animation_player :: proc
