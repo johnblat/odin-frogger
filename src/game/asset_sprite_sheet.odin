@@ -1,6 +1,5 @@
 package game
 
-import rl "vendor:raylib"
 import "../rlgrid"
 import pirc "../pirc"
 
@@ -107,16 +106,16 @@ draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectan
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
 	pirc.grid_render_texture_clip(
 		cmds = &g_state.render_cmds,
-		tex = g_state.texture_sprite_sheet,
-		pos = [2]f32{ dst_rectangle.x, dst_rectangle.y },
+		tex = g_state.textures[.Sprite_Sheet],
 		src_rect = pirc.Rectangle{ rectangle_clip.x, rectangle_clip.y, rectangle_clip.w, rectangle_clip.h },
-		grid_unit_size = grid_unit_size,
+		dst_rect = dst_rectangle,
+		src_grid_unit_size = global_sprite_sheet_cell_size,
+		dst_grid_unit_size = grid_unit_size,
 		color = { 255, 255, 255, 255 },
-		scale = { dst_rectangle.w, dst_rectangle.h },
 		rotation = rotation,
 		flip_x = flip_x, flip_y = flip_y
 	)
-	// rlgrid.draw_grid_texture_clip_on_grid(g_state.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, grid_unit_size, rotation, flip_x, flip_y)
+	// rlgrid.draw_grid_texture_clip_on_grid(g_state.textures[.Sprite_Sheet], rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, grid_unit_size, rotation, flip_x, flip_y)
 }
 
 draw_sprite_sheet_clip_on_game_texture_grid :: proc(
@@ -128,7 +127,7 @@ draw_sprite_sheet_clip_on_game_texture_grid :: proc(
 )
 {
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
-	dst_rectangle := rl.Rectangle{pos.x, pos.y, rectangle_clip.w * scale_x, rectangle_clip.h * scale_y}
+	dst_rectangle := pirc.Rectangle{pos.x, pos.y, rectangle_clip.w * scale_x, rectangle_clip.h * scale_y}
 	src_rect := pirc.Rectangle { 
 		rectangle_clip.x * global_sprite_sheet_cell_size,
 		rectangle_clip.y * global_sprite_sheet_cell_size,
@@ -137,16 +136,16 @@ draw_sprite_sheet_clip_on_game_texture_grid :: proc(
 	}
 	pirc.grid_render_texture_clip(
 		cmds = &g_state.render_cmds,
-		tex = g_state.texture_sprite_sheet,
-		pos = pos,
+		tex = g_state.textures[.Sprite_Sheet],
 		src_rect = src_rect,
-		grid_unit_size = global_game_texture_grid_cell_size,
+		dst_rect = dst_rectangle,
+		src_grid_unit_size = global_sprite_sheet_cell_size,
+		dst_grid_unit_size = global_game_texture_grid_cell_size,
 		color = {255, 255, 255, 255},
-		scale = { scale_x, scale_y },
 		rotation = rotation,
 		flip_x = flip_x, flip_y = flip_y
 	)
-	// rlgrid.draw_grid_texture_clip_on_grid(g_state.texture_sprite_sheet, rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, global_game_texture_grid_cell_size, rotation, flip_x, flip_y)
+	// rlgrid.draw_grid_texture_clip_on_grid(g_state.textures[.Sprite_Sheet], rectangle_clip, global_sprite_sheet_cell_size, dst_rectangle, global_game_texture_grid_cell_size, rotation, flip_x, flip_y)
 }
 
 draw_sprite_sheet_clip_on_game_texture_grid_from_animation_player :: proc

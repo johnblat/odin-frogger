@@ -134,11 +134,26 @@ render_texture_ex :: proc(
 	color : [4]u8 = { 255, 255, 255, 255 },
 )
 {
+	src_rect := Rectangle {
+		0,
+		0,
+		texture.w,
+		texture.h,
+	}
+
+	dst_rect := Rectangle {
+		pos.x,
+		pos.y,
+		texture.w * scale,
+		texture.h * scale,
+	}
+
 	render_texture_clip_ex(
 		cmds, 
 		texture, 
-		pos, 
-		0, 0, texture.w * scale, texture.h * scale, 
+		src_rect.x, src_rect.y, src_rect.w, src_rect.h,
+		dst_rect, 
+		color = color,
 	)	
 }
 
@@ -153,10 +168,9 @@ render_texture_clip :: proc(cmds : ^[dynamic]Cmd, texture : Texture, pos : [2]f3
 render_texture_clip_ex :: proc(
 	cmds : ^[dynamic]Cmd, 
 	texture : Texture, 
-	pos : [2]f32, 
 	clip_x, clip_y, clip_w, clip_h : f32,
+	dst_rect : Rectangle,
 	color : [4]u8 = { 255, 255, 255, 255 },
-	scale : [2]f32 = { 1, 1 }, 
 	rotation : f32 = 0.0, 
 	flip_x : bool = false, 
 	flip_y : bool = false,
@@ -172,7 +186,7 @@ render_texture_clip_ex :: proc(
 		src_rect.h = -src_rect.h
 	}
 
-	dst_rectangle := Rectangle { pos.x, pos.y, clip_w * scale.x, clip_h * scale.y }
+	dst_rectangle := dst_rect
 	rotation_origin := [2]f32{dst_rectangle.w / 2, dst_rectangle.h / 2}
 	dst_rectangle.x += rotation_origin.x
 	dst_rectangle.y += rotation_origin.y
@@ -206,25 +220,30 @@ render_text_tprintf :: proc(cmds : ^[dynamic]Cmd, pos : [2]f32, font_id : Font_I
 grid_render_texture_clip :: proc(
 	cmds : ^[dynamic]Cmd,
 	tex : Texture,
-	pos : [2]f32, 
-	src_rect: Rectangle, 
-	grid_unit_size : f32 = 1.0, 
+	src_rect: Rectangle,
+	dst_rect : Rectangle,
+	src_grid_unit_size : f32 = 1.0,
+	dst_grid_unit_size : f32 = 1.0, 
 	color : [4]u8 = {255, 255, 255, 255}, 
-	scale : [2]f32 = {1, 1}, 
 	rotation : f32 = 0.0, 
 	flip_x : bool = false, 
 	flip_y : bool = false
 )
 {
-	scaled_pos := pos * grid_unit_size
+	dst_grid_rect := Rectangle {
+		dst_rect.x * dst_grid_unit_size,
+		dst_rect.y * dst_grid_unit_size,
+		dst_rect.w * dst_grid_unit_size,
+		dst_rect.h * dst_grid_unit_size,
+	}
+
 
 	render_texture_clip_ex(
 		cmds,
 		tex,
-		scaled_pos,
 		src_rect.x, src_rect.y, src_rect.w, src_rect.h,
+		dst_grid_rect,
 		color,
-		scale,
 		rotation,
 		flip_x,
 		flip_y,

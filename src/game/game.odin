@@ -35,7 +35,7 @@ Rectangle :: struct {
 
 Texture_Load_Description :: struct
 {
-	   tex_id : Texture_Id,
+   	tex_id : Texture_Id,
 	name : string,
 	png_data : []byte,
 }
@@ -187,8 +187,9 @@ G_State :: struct
 	input_state : Input_State,
 
 	// Spritesheets
-	texture_sprite_sheet : pirc.Texture,
-	texture_background   : pirc.Texture,
+	textures : [Texture_Id]pirc.Texture,
+	// texture_sprite_sheet : pirc.Texture,
+	// texture_background   : pirc.Texture,
 
 	speed_multiplier_difficulty: f32,
 
@@ -540,6 +541,8 @@ game_init :: proc()
 	g_state.level_index = 0
 
 	g_state.lives = 3
+
+	g_state.camera.zoom = 1.0
 
 }
 
@@ -1477,7 +1480,7 @@ root_state_game :: proc()
 		{ // draw background
 			scale : f32 =  global_game_texture_grid_cell_size / global_sprite_sheet_cell_size
 			
-			pirc.render_texture_ex(&g_state.render_cmds, g_state.texture_background, [2]f32{0,0}, scale)
+			pirc.render_texture_ex(&g_state.render_cmds, g_state.textures[.Background], [2]f32{0,0}, scale)
 			// rl.DrawTextureEx(g_state.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
@@ -1841,8 +1844,6 @@ game_update :: proc()
 		case .Game: root_state_game()
 	}
 
-
-	free_all(context.temp_allocator)
 }
 
 
