@@ -7,6 +7,7 @@ import "core:strings"
 import "core:c"
 
 import pirc "../pirc"
+import shape "../shape"
 // import rlgrid "../rlgrid"
 
 
@@ -28,10 +29,6 @@ Direction :: enum {
 	Up, Down, Left, Right
 }
 
-
-Rectangle :: struct {
-	x, y, w, h : f32
-}
 
 Texture_Load_Description :: struct
 {
@@ -110,7 +107,7 @@ Snake_Behavior_State :: struct
 
 Entity :: struct
 {
-	rectangle : Rectangle, // what is the hitbox? and where should we draw the entity?
+	rectangle : shape.Rectangle, // what is the hitbox? and where should we draw the entity?
 	speed     : f32, // how fast does the entity move
 	sprite_data: Sprite_Data, // either a single sprite or an animated sprite
 	collision_behavior: Collision_Behavior, // what should this entity do to frogger?
@@ -119,10 +116,7 @@ Entity :: struct
 }
 
 
-rectangle_to_pirc :: proc(rectangle : Rectangle) -> pirc.Rectangle
-{
-	return transmute(pirc.Rectangle)rectangle
-}
+
 
 Root_State :: enum {
 	Main_Menu,
@@ -275,7 +269,7 @@ font_load_descriptions := [?] Font_Load_Description {
 g_state: ^G_State
 
 
-lilypads := [5]Rectangle{
+lilypads := [5]shape.Rectangle{
 	{.5,   2, 1, 1},
 	{3.5,  2, 1, 1},
 	{6.5,  2, 1, 1},
@@ -284,7 +278,7 @@ lilypads := [5]Rectangle{
 }
 
 
-check_collision_point_rectangle :: proc(point : [2]f32, rec : Rectangle) -> bool
+check_collision_point_rectangle :: proc(point : [2]f32, rec : shape.Rectangle) -> bool
 {
 
     collision := false
@@ -299,7 +293,7 @@ check_collision_point_rectangle :: proc(point : [2]f32, rec : Rectangle) -> bool
 
 
 
-check_collision_rectangles :: proc(rec1 : Rectangle, rec2 : Rectangle) -> bool
+check_collision_rectangles :: proc(rec1 : shape.Rectangle, rec2 : shape.Rectangle) -> bool
 {
 	collision := false
 
@@ -336,7 +330,7 @@ entity_move :: proc(entity: ^Entity, move_amount_x, dt: f32)
 
 
 animation_frames_alligator := [?]Sprite_Clip_Name{ .Alligator_Mouth_Closed, .Alligator_Mouth_Open }
-alligator_hit_box_relative_mouth_open := Rectangle{2, 0, 1, 1}
+alligator_hit_box_relative_mouth_open := shape.Rectangle{2, 0, 1, 1}
 
 
 animation_frames_regular_turtles := [?]Sprite_Clip_Name{ .Turtle_Frame_0, .Turtle_Frame_1, .Turtle_Frame_2 }
@@ -416,7 +410,7 @@ fly_timer := Timer{
 fly_is_active : bool     = false
 
 lily_is_active : bool = false
-lily_sprite_sheet_clip := Rectangle {2, 1, 1, 1}
+lily_sprite_sheet_clip := shape.Rectangle {2, 1, 1, 1}
 lily_relative_log_pos_x : f32 = 0
 lily_width : f32 = 1
 lily_height : f32 = 1
@@ -725,8 +719,8 @@ root_state_game :: proc()
 	}
 
 
-	river := Rectangle{0, 3, 14, 5}
-	riverbed := Rectangle{0, 1, 14,2}
+	river := shape.Rectangle{0, 3, 14, 5}
+	riverbed := shape.Rectangle{0, 1, 14,2}
 
 	should_run_simulation := true
 	if g_state.pause && !skip_next_frame
@@ -884,8 +878,8 @@ root_state_game :: proc()
 		{
 			frogger_center_pos    := g_state.frogger_pos + 0.5
 			entity_that_lily_is_on   := entities[lily_logs_to_spawn_on[g_state.level_index]]
-			lily_relative_log_rectangle := Rectangle { lily_relative_log_pos_x, 0, 1, 1 }
-			lily_world_rectangle        := Rectangle{ 
+			lily_relative_log_rectangle := shape.Rectangle { lily_relative_log_pos_x, 0, 1, 1 }
+			lily_world_rectangle        := shape.Rectangle{ 
 				lily_relative_log_rectangle.x + entity_that_lily_is_on.rectangle.x, 
 				lily_relative_log_rectangle.y + entity_that_lily_is_on.rectangle.y, 
 				1, 
@@ -1123,7 +1117,7 @@ root_state_game :: proc()
 					intersecting_entity := entity
 				}
 
-				frogger_rectangle := Rectangle { g_state.frogger_pos.x - 0.2 , g_state.frogger_pos.y, 1.4, 1}
+				frogger_rectangle := shape.Rectangle { g_state.frogger_pos.x - 0.2 , g_state.frogger_pos.y, 1.4, 1}
 
 				is_otter_intersecting_with_frogger := check_collision_rectangles(otter.entity.rectangle, frogger_rectangle)
 
@@ -1294,7 +1288,9 @@ root_state_game :: proc()
 			return // don't process anything else here	
 		}
 		
-		should_check_for_frogger_is_killed := !animation_timer_is_playing(g_state.animation_player_frogger_is_dying.timer)  && !g_state.dbg_is_frogger_unkillable
+		should_check_for_frogger_is_killed := !animation_timer_is_playing(g_state.animation_player_frogger_is_dying.timer)  && 
+			!g_state.dbg_is_frogger_unkillable
+
 		if should_check_for_frogger_is_killed 
 		{
 			is_frogger_out_of_bounds := g_state.frogger_pos.x + 0.5 < 0 || g_state.frogger_pos.x - 0.5 >= global_number_grid_cells_axis_x -1 || g_state.frogger_pos.y < 0 || g_state.frogger_pos.y > global_number_grid_cells_axis_y
@@ -1403,11 +1399,11 @@ root_state_game :: proc()
 			{ // snake kill
 				for snake, i in snakes
 				{
-					snake_relative_hitbox := Rectangle{0, 0, 1, 1}
+					snake_relative_hitbox := shape.Rectangle{0, 0, 1, 1}
 					if snake.speed > 0
 					{
 						// flipped
-						snake_relative_hitbox = Rectangle{1, 0, 1, 1}
+						snake_relative_hitbox = shape.Rectangle{1, 0, 1, 1}
 					}
 
 					snake_world_hitbox := snake_relative_hitbox
@@ -1468,20 +1464,13 @@ root_state_game :: proc()
 		// 	zoom = g_state.dbg_camera_zoom,
 		// }
 
-		// rl.BeginTextureMode(g_state.game_render_target)
-
-		// rl.BeginMode2D(camera)
 
 		pirc.render_bg_clear(&g_state.render_cmds, 200,200,200,255)
-
-		// rl.ClearBackground(rl.LIGHTGRAY) 
 
 
 		{ // draw background
 			scale : f32 =  global_game_texture_grid_cell_size / global_sprite_sheet_cell_size
-			
 			pirc.render_texture_ex(&g_state.render_cmds, g_state.textures[.Background], [2]f32{0,0}, scale)
-			// rl.DrawTextureEx(g_state.texture_background, [2]f32{0,0}, 0, scale, rl.WHITE)
 		}
 
 		should_display_last_cycle_time := countdown_is_playing(g_state.countdown_timer_display_last_cycle_completion)
@@ -1514,6 +1503,7 @@ root_state_game :: proc()
 			// 	horizontal_text_justification = .Centered, vertical_text_justification = .Centered
 			// )
 		}
+		
 
 
 		{ // draw entities
@@ -1588,22 +1578,22 @@ root_state_game :: proc()
 				}
 				if timer_is_playing(otter.timer_attack)
 				{
-					draw_sprite_sheet_clip_on_grid(.Otter_Attacking, rectangle_to_pirc(otter.entity.rectangle), global_game_texture_grid_cell_size, 0, flip_x, false)
+					draw_sprite_sheet_clip_on_grid(.Otter_Attacking, otter.entity.rectangle, global_game_texture_grid_cell_size, 0, flip_x, false)
 				}
 				else
 				{
-					draw_sprite_sheet_clip_on_grid(.Otter_Peek, rectangle_to_pirc(otter.entity.rectangle), global_game_texture_grid_cell_size, 0, flip_x, false)
+					draw_sprite_sheet_clip_on_grid(.Otter_Peek, otter.entity.rectangle, global_game_texture_grid_cell_size, 0, flip_x, false)
 				}
 			}
 
 		}	
 
 
-		// if fly_is_active 
+		if fly_is_active 
 		{ // draw fly
 			lilypad_index := fly_lilypad_indices[fly_lilypad_index%len(fly_lilypad_indices)]
 			dst_rect := lilypads[lilypad_index]
-			render_dst_rect := transmute(pirc.Rectangle)(dst_rect)
+			render_dst_rect := transmute(shape.Rectangle)(dst_rect)
 			draw_sprite_sheet_clip_on_grid(.Fly, render_dst_rect, global_game_texture_grid_cell_size, 0 )
 			// rlgrid.draw_grid_texture_clip_on_grid(g_state.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_game_texture_grid_cell_size, 0)
 		}
@@ -1728,8 +1718,8 @@ root_state_game :: proc()
 		
 		if g_state.dbg_show_entity_bounding_rectangles
 		{	
-			frogger_rectangle := Rectangle{g_state.frogger_pos.x, g_state.frogger_pos.y, 1, 1}
-			pirc.grid_render_rectangle_lines(&g_state.render_cmds, transmute(pirc.Rectangle)(frogger_rectangle), global_game_texture_grid_cell_size, 4, color = [4]u8{0,255,0,255})
+			frogger_rectangle := shape.Rectangle{g_state.frogger_pos.x, g_state.frogger_pos.y, 1, 1}
+			pirc.grid_render_rectangle_lines(&g_state.render_cmds, frogger_rectangle, global_game_texture_grid_cell_size, 4, color = [4]u8{0,255,0,255})
 			// rlgrid.draw_rectangle_lines_on_grid(frogger_rectangle, 4, GREEN, global_game_texture_grid_cell_size)
 		}
 
@@ -1762,7 +1752,7 @@ root_state_game :: proc()
 			percentage_full := percentage_full(g_state.countdown_timer_lose_life, global_countdown_timer_lose_life_duration)
 			rectangle_width := max_rectangle_width * percentage_full
 
-			timer_rectangle := Rectangle { global_number_grid_cells_axis_x - 2, global_number_grid_cells_axis_y - 0.5, rectangle_width, 0.5 }
+			timer_rectangle := shape.Rectangle { global_number_grid_cells_axis_x - 2, global_number_grid_cells_axis_y - 0.5, rectangle_width, 0.5 }
 			color := GREEN
 			if percentage_full < 0.2
 			{
@@ -1803,25 +1793,23 @@ root_state_main_menu :: proc()
 
 	pirc.render_bg_clear(&g_state.render_cmds, 0, 0, 0, 255)
 
-	// rl.BeginTextureMode(g_state.game_render_target)
-	// defer rl.EndTextureMode()
-
-	// rl.ClearBackground(BLACK)
 	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 5}
-	// rlgrid.draw_text_on_grid_centered(g_state.font, "FROGGER", title_centered_pos, 2, 0, GREEN, global_game_texture_grid_cell_size )
-	pirc.render_text_tprintf(&g_state.render_cmds, title_centered_pos, g_state.font, 20, {0, 255, 0, 255}, "FROGGER")
+	title_centered_pos.x -= 3 // only doing this until i get text centering working
+	pirc.grid_render_text_tprintf(&g_state.render_cmds, title_centered_pos, g_state.font, 2, {0, 255, 0, 255}, global_game_texture_grid_cell_size, "FROGGER")
 	title_centered_pos.y += 2
 
 	if visible
 	{
 		press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
-		pirc.render_text_tprintf(&g_state.render_cmds, press_enter_centered_pos, g_state.font, 10, {255, 255, 255, 255}, "press start to play")
+		press_enter_centered_pos.x -= 4
+		pirc.grid_render_text_tprintf(&g_state.render_cmds, press_enter_centered_pos, g_state.font, 0.7, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "press start to play")
 		
 		// rlgrid.draw_text_on_grid_centered(g_state.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_game_texture_grid_cell_size)		
 	}
 
 	credits_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, global_number_grid_cells_axis_y - 3}
-	pirc.render_text_tprintf(&g_state.render_cmds, credits_centered_pos, g_state.font, 10, {255, 255, 255, 255}, "a fandmade frogger remake")
+	credits_centered_pos.x -= 3
+	pirc.grid_render_text_tprintf(&g_state.render_cmds, credits_centered_pos, g_state.font, 0.3, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "a fandmade frogger remake")
 	
 	// rlgrid.draw_text_on_grid_centered(g_state.font, "a fanmade frogger remake", credits_centered_pos, 0.3, 0, rl.WHITE, global_game_texture_grid_cell_size)
 

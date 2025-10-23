@@ -5,11 +5,7 @@ package pirc
 import "core:math"
 import "core:slice"
 import "core:fmt"
-
-Rectangle :: struct
-{
-	x, y, w, h : f32 
-}
+import "../shape"
 
 
 Texture_Id :: u32
@@ -28,14 +24,14 @@ Texture :: struct
 
 Cmd_Rectangle_Fill :: struct
 {
-	using rectangle : Rectangle,
+	using rectangle : shape.Rectangle,
 	color : [4]u8,
 }
 
 
 Cmd_Rectangle_Lines :: struct
 {
-	using rectangle : Rectangle, 
+	using rectangle : shape.Rectangle, 
 	thick : f32,
 	color : [4]u8,
 }
@@ -52,8 +48,8 @@ Cmd_Line :: struct
 Cmd_Texture_Clip :: struct
 {
 	tex_id : Texture_Id,
-	src_rect : Rectangle,
-	dst_rect : Rectangle,
+	src_rect : shape.Rectangle,
+	dst_rect : shape.Rectangle,
 	rotation : f32,
 	rotation_origin : [2]f32,
 	color : [4]u8,
@@ -134,14 +130,14 @@ render_texture_ex :: proc(
 	color : [4]u8 = { 255, 255, 255, 255 },
 )
 {
-	src_rect := Rectangle {
+	src_rect := shape.Rectangle {
 		0,
 		0,
 		texture.w,
 		texture.h,
 	}
 
-	dst_rect := Rectangle {
+	dst_rect := shape.Rectangle {
 		pos.x,
 		pos.y,
 		texture.w * scale,
@@ -169,14 +165,14 @@ render_texture_clip_ex :: proc(
 	cmds : ^[dynamic]Cmd, 
 	texture : Texture, 
 	clip_x, clip_y, clip_w, clip_h : f32,
-	dst_rect : Rectangle,
+	dst_rect : shape.Rectangle,
 	color : [4]u8 = { 255, 255, 255, 255 },
 	rotation : f32 = 0.0, 
 	flip_x : bool = false, 
 	flip_y : bool = false,
 )
 {
-	src_rect := Rectangle { clip_x, clip_y, clip_w, clip_h }
+	src_rect := shape.Rectangle { clip_x, clip_y, clip_w, clip_h }
 	if flip_x
 	{
 		src_rect.w = -src_rect.w
@@ -217,11 +213,26 @@ render_text_tprintf :: proc(cmds : ^[dynamic]Cmd, pos : [2]f32, font_id : Font_I
 }
 
 
+grid_render_text_tprintf :: proc(cmds : ^[dynamic]Cmd, pos : [2]f32, font_id : Font_Id, size : f32, color : [4]u8, dst_grid_unit_size : f32, fmt_s : string, args : ..any)
+{
+	dst_pos := pos * dst_grid_unit_size
+	dst_size := size * dst_grid_unit_size
+	render_text_tprintf(
+		cmds,
+		dst_pos,
+		font_id,
+		dst_size,
+		color,
+		fmt_s,
+		..args
+	) 
+}
+
 grid_render_texture_clip :: proc(
 	cmds : ^[dynamic]Cmd,
 	tex : Texture,
-	src_rect: Rectangle,
-	dst_rect : Rectangle,
+	src_rect: shape.Rectangle,
+	dst_rect : shape.Rectangle,
 	src_grid_unit_size : f32 = 1.0,
 	dst_grid_unit_size : f32 = 1.0, 
 	color : [4]u8 = {255, 255, 255, 255}, 
@@ -230,7 +241,7 @@ grid_render_texture_clip :: proc(
 	flip_y : bool = false
 )
 {
-	dst_grid_rect := Rectangle {
+	dst_grid_rect := shape.Rectangle {
 		dst_rect.x * dst_grid_unit_size,
 		dst_rect.y * dst_grid_unit_size,
 		dst_rect.w * dst_grid_unit_size,
@@ -253,7 +264,7 @@ grid_render_texture_clip :: proc(
 
 grid_render_rectangle_lines :: proc(
 	cmds : ^[dynamic]Cmd,
-	rectangle : Rectangle,
+	rectangle : shape.Rectangle,
 	grid_unit_size : f32,
 	thick : f32,
 	color : [4]u8,
