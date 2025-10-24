@@ -213,7 +213,15 @@ render_text_tprintf :: proc(cmds : ^[dynamic]Cmd, pos : [2]f32, font_id : Font_I
 }
 
 
-grid_render_text_tprintf :: proc(cmds : ^[dynamic]Cmd, pos : [2]f32, font_id : Font_Id, size : f32, color : [4]u8, dst_grid_unit_size : f32, fmt_s : string, args : ..any)
+grid_render_text_tprintf :: proc(
+	cmds : ^[dynamic]Cmd, 
+	pos : [2]f32, 
+	font_id : Font_Id, 
+	size : f32, 
+	color : [4]u8, 
+	dst_grid_unit_size : f32, 
+	fmt_s : string, args : ..any
+)
 {
 	dst_pos := pos * dst_grid_unit_size
 	dst_size := size * dst_grid_unit_size
@@ -226,6 +234,69 @@ grid_render_text_tprintf :: proc(cmds : ^[dynamic]Cmd, pos : [2]f32, font_id : F
 		fmt_s,
 		..args
 	) 
+}
+
+
+grid_render_text_tprintf_ex :: proc(
+	cmds : ^[dynamic]Cmd, 
+	pos : [2]f32, 
+	font_id : Font_Id, 
+	size : f32, 
+	color : [4]u8, 
+	dst_grid_unit_size : f32, 
+	h_align : H_Alignment,
+	v_align : V_Alignment,
+	fmt_s : string, args : ..any
+)
+{
+	// TODO: handle alignment
+	grid_render_text_tprintf(
+		cmds,
+		pos,
+		font_id,
+		size,
+		color,
+		dst_grid_unit_size,
+		fmt_s, ..args
+	)
+}
+
+
+grid_render_text_tprintf_ex_with_background :: proc(
+	cmds : ^[dynamic]Cmd, 
+	pos : [2]f32, 
+	font_id : Font_Id, 
+	size : f32, 
+	text_color : [4]u8, 
+	bg_color : [4]u8,
+	dst_grid_unit_size : f32, 
+	h_align : H_Alignment,
+	v_align : V_Alignment,
+	fmt_s : string, args : ..any
+)
+{
+	// TODO make rectangle size the dimensions of the text
+	rectangle := shape.Rectangle { pos.x, pos.y, 200, size}
+	grid_render_rectangle_fill_ex(
+		cmds,
+		rectangle,
+		dst_grid_unit_size,
+		bg_color,
+		h_align,
+		v_align
+	)
+
+	grid_render_text_tprintf_ex(
+		cmds, 
+		pos,
+		font_id,
+		size,
+		text_color,
+		dst_grid_unit_size,
+		h_align,
+		v_align,
+		fmt_s, ..args
+	)
 }
 
 grid_render_texture_clip :: proc(
@@ -278,4 +349,41 @@ grid_render_rectangle_lines :: proc(
 
 	render_rectangle_lines(cmds, scaled_rectangle.x, scaled_rectangle.y, scaled_rectangle.w, scaled_rectangle.h, thick, color.r, color.g, color.b, color.a)
 
+}
+
+
+grid_render_rectangle_fill_ex :: proc(
+	cmds : ^[dynamic]Cmd,
+	rectangle : shape.Rectangle,
+	grid_unit_size : f32,
+	color : [4]u8,
+	h_align : H_Alignment = .Left,
+	v_align : V_Alignment = .Top,
+)
+{
+	aligned_rectangle := rectangle
+	#partial switch h_align
+	{
+		case .Center : {aligned_rectangle.x -= rectangle.w/2}
+		case .Right  : {aligned_rectangle.x -= rectangle.w}
+	}
+	#partial switch v_align
+	{
+		case .Center : {aligned_rectangle.y -= rectangle.h/2}
+		case .Bottom : {aligned_rectangle.y -= rectangle.h}
+	}
+	grid_scaled_rectangle := aligned_rectangle
+	grid_scaled_rectangle.x *= grid_unit_size
+	grid_scaled_rectangle.y *= grid_unit_size
+	grid_scaled_rectangle.w *= grid_unit_size
+	grid_scaled_rectangle.h *= grid_unit_size
+
+	render_rectangle_fill(
+		cmds, 
+		grid_scaled_rectangle.x, 
+		grid_scaled_rectangle.y,
+		grid_scaled_rectangle.w,
+		grid_scaled_rectangle.h,
+		color.r, color.g, color.b, color.a
+	)
 }

@@ -16,15 +16,15 @@ Game_API :: struct
 	api_version: int,
 
 	// api
-	init_platform: proc(),
 	init: proc(),
-	update: proc(),
+	update_and_render: proc(),
 	should_run: proc() -> bool,
-	memory_ptr: proc() -> rawptr,
+	platform_state_memory_ptr : proc() -> rawptr,
+	game_state_memory_ptr : proc() -> rawptr,
 	memory_size: proc() -> int,
-	hot_reload: proc(mem: rawptr),
+	hot_reload: proc(platform_mem : rawptr, state_mem : rawptr),
 	is_build_requested: proc() -> bool,
-	shutdown: proc(),
+	platform_shutdown: proc(),
 	free_memory: proc()
 }
 
@@ -69,7 +69,7 @@ load_game_api :: proc(api_version: int) -> (api: Game_API, ok: bool)
 		return
 	}
 
-	_, is_dynlib_initialize_symbols_ok := dynlib.initialize_symbols(&api, game_dll_name, "game_", "lib")
+	_, is_dynlib_initialize_symbols_ok := dynlib.initialize_symbols(&api, game_dll_name, "", "lib")
 	if !is_dynlib_initialize_symbols_ok
 	{
 		dynlib_error := dynlib.last_error()
@@ -90,7 +90,6 @@ unload_game_api :: proc(api: ^Game_API)
 	if is_library_loaded
 	{
 		is_unload_ok := dynlib.unload_library(api.lib)
-		
 		if is_unload_ok
 		{
 			dynlib_error := dynlib.last_error()
@@ -136,14 +135,13 @@ main :: proc()
 		return
 	}
 
-	game_api.init_platform()
 	game_api.init()
 
 	old_game_apis := make([dynamic]Game_API)
 
 	for game_api.should_run()
 	{
-		game_api.update()
+		game_api.update_and_render()
 
 		is_build_requested := game_api.is_build_requested()
 
@@ -165,7 +163,6 @@ main :: proc()
 				fmt.printf("%s", stderr)
 			}
 		}	
-
 
 		game_dll_modification_time, get_modification_time_error := os.last_write_time_by_name(GAME_DLL_PATH)
 
@@ -206,9 +203,10 @@ main :: proc()
 				else
 				{
 					append(&old_game_apis, game_api)
-					game_memory := game_api.memory_ptr()
+					game_memory := game_api.game_state_memory_ptr()
+					platform_memory := game_api.platform_state_memory_ptr()
 					game_api = new_game_api
-					game_api.hot_reload(game_memory)
+					game_api.hot_reload(platform_memory, game_memory)
 				}
 			}
 			else
@@ -220,5 +218,5 @@ main :: proc()
 		free_all(context.temp_allocator)
 	}
 
-	game_api.shutdown()
+	game_api.platform_shutdown()
 }

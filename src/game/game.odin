@@ -24,6 +24,7 @@ global_level_end_timer_duration : f32 = 6.0
 GREEN :: [4]u8 { 0, 255, 0, 255 }
 RED :: [4]u8 { 255, 0, 0, 255 }
 BLACK :: [4]u8 { 0, 0, 0, 255 }
+WHITE :: [4]u8 { 255, 255, 255, 255 }
 
 Direction :: enum {
 	Up, Down, Left, Right
@@ -1476,32 +1477,38 @@ root_state_game :: proc()
 		should_display_last_cycle_time := countdown_is_playing(g_state.countdown_timer_display_last_cycle_completion)
 		if should_display_last_cycle_time 
 		{ 
-			text := fmt.ctprint("TIME:", g_state.last_cycle_completion_in_seconds)
+			text := fmt.tprint("TIME:", g_state.last_cycle_completion_in_seconds)
 			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
-			// rlgrid.draw_text_on_grid_with_background(
-			// 	g_state.font, 
-			// 	text, 
-			// 	center_screen_on_median, 
-			// 	0.7, 
-			// 	global_game_texture_grid_cell_size, 
-			// 	text_tint = RED, background_color = BLACK, 
-			// 	horizontal_text_justification = .Centered, vertical_text_justification = .Centered
-			// )
+			pirc.grid_render_text_tprintf_ex_with_background(
+				&g_state.render_cmds,
+				center_screen_on_median,
+				g_state.font,
+				0.7,
+				RED,
+				BLACK,
+				global_game_texture_grid_cell_size,
+				.Center,
+				.Center,
+				text
+			)
 		}
 
 		should_display_game_over := countdown_is_playing(g_state.countdown_timer_game_over_display)
 		if should_display_game_over 
 		{ 
-			// center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
-			// rlgrid.draw_text_on_grid_with_background(
-			// 	g_state.font, 
-			// 	"GAME OVER", 
-			// 	center_screen_on_median, 
-			// 	0.7, 
-			// 	global_game_texture_grid_cell_size, 
-			// 	text_tint = RED, background_color = BLACK, 
-			// 	horizontal_text_justification = .Centered, vertical_text_justification = .Centered
-			// )
+			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
+			pirc.grid_render_text_tprintf_ex_with_background(
+				&g_state.render_cmds,
+				center_screen_on_median,
+				g_state.font,
+				0.7,
+				RED,
+				BLACK,
+				global_game_texture_grid_cell_size,
+				.Center,
+				.Center,
+				"GAME OVER"
+			)
 		}
 		
 
@@ -1595,7 +1602,6 @@ root_state_game :: proc()
 			dst_rect := lilypads[lilypad_index]
 			render_dst_rect := transmute(shape.Rectangle)(dst_rect)
 			draw_sprite_sheet_clip_on_grid(.Fly, render_dst_rect, global_game_texture_grid_cell_size, 0 )
-			// rlgrid.draw_grid_texture_clip_on_grid(g_state.texture_sprite_sheet, clip, global_sprite_sheet_cell_size,  dst_rect, global_game_texture_grid_cell_size, 0)
 		}
 
 		
@@ -1736,15 +1742,35 @@ root_state_game :: proc()
 
 			one_up_pos := [2]f32{4,0}
 
-			// rlgrid.draw_text_on_grid_right_justified(g_state.font, "1-UP", one_up_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_game_texture_grid_cell_size))
+			pirc.grid_render_text_tprintf_ex(
+				&g_state.render_cmds,
+				one_up_pos,
+				g_state.font,
+				0.7,
+				WHITE,
+				global_game_texture_grid_cell_size,
+				.Left,
+				.Top,
+				"1-UP"
+			)
 
-			score_text := fmt.ctprintf("%05d", g_state.score)
+			score_text := fmt.tprintf("%05d", g_state.score)
 			score_text_pos := [2]f32 {
 				one_up_pos.x,
 				one_up_pos.y + heads_up_display_font_size
 			}
 
-			// rlgrid.draw_text_on_grid_right_justified(g_state.font, score_text, score_text_pos, heads_up_display_font_size, 0, rl.WHITE, f32(global_game_texture_grid_cell_size))
+			pirc.grid_render_text_tprintf_ex(
+				&g_state.render_cmds,
+				score_text_pos,
+				g_state.font,
+				0.7,
+				WHITE,
+				global_game_texture_grid_cell_size,
+				.Left,
+				.Top,
+				score_text,
+			)
 		}
 
 		{ // countdown timer
@@ -1758,12 +1784,15 @@ root_state_game :: proc()
 			{
 				color = RED
 			}
-			// rlgrid.draw_rectangle_on_grid_right_justified(timer_rectangle, color, global_game_texture_grid_cell_size)
+			pirc.grid_render_rectangle_fill_ex(
+				&g_state.render_cmds,
+				timer_rectangle,
+				global_game_texture_grid_cell_size,
+				color,
+				.Right,
+				.Top,
+			)
 		}
-
-		// rl.EndMode2D()
-
-		// rl.EndTextureMode()
 	}
 }
 

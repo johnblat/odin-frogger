@@ -168,6 +168,28 @@ global_filename_window_save_data := "window_save_data.frog"
 bytes_aa_pixel_filter_shader        := #load("../pixel_filter.fs")
 
 
+@(export)
+platform_state_memory_ptr :: proc() -> rawptr
+{
+	return p_state
+}
+
+
+@(export)
+game_state_memory_ptr :: proc() -> rawptr
+{
+	return game.g_state
+}
+
+
+@(export)
+memory_size :: proc() -> int
+{
+	total := size_of(P_State) + size_of(game.G_State)
+	return total
+}
+
+
 
 @(export)
 is_build_requested :: proc() -> bool
