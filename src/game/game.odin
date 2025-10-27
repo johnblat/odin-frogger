@@ -8,6 +8,8 @@ import "core:c"
 
 import pirc "../pirc"
 import shape "../shape"
+
+
 // import rlgrid "../rlgrid"
 
 
@@ -57,6 +59,12 @@ Font_Id :: enum pirc.Font_Id
 	Joystix,
 }
 
+
+Font_Char :: struct
+{
+	x0, y0, x1, y1: u16, // coordinates of bbox in bitmap
+	xoff, yoff, xadvance: f32,
+}
 
 
 Sprite_Data :: union {
@@ -172,7 +180,6 @@ Camera :: struct
 
 
 
-
 G_State :: struct 
 {	
 	dt : f32, 
@@ -183,8 +190,6 @@ G_State :: struct
 
 	// Spritesheets
 	textures : [Texture_Id]pirc.Texture,
-	// texture_sprite_sheet : pirc.Texture,
-	// texture_background   : pirc.Texture,
 
 	speed_multiplier_difficulty: f32,
 
@@ -255,19 +260,18 @@ G_State :: struct
 
 }
 
+g_state: ^G_State
+
 
 texture_load_descriptions := [?] Texture_Load_Description {
 	{ tex_id = .Background, name = "retro arcade background", png_data = #load("../../assets/frogger_background_modified.png") },
 	{ tex_id = .Sprite_Sheet, name = "retro arcade sprites", png_data = #load("../../assets/frogger_sprite_sheet_modified.png") },
 }
 
+
 font_load_descriptions := [?] Font_Load_Description {
 	{ font_id = .Joystix, name = "joystix", font_data = #load("../../assets/joystix monospace.otf")}
 }
-
-
-
-g_state: ^G_State
 
 
 lilypads := [5]shape.Rectangle{
@@ -277,57 +281,6 @@ lilypads := [5]shape.Rectangle{
 	{9.5,  2, 1, 1},
 	{12.5, 2, 1, 1},
 }
-
-
-check_collision_point_rectangle :: proc(point : [2]f32, rec : shape.Rectangle) -> bool
-{
-
-    collision := false
-
-    if (point.x >= rec.x) && (point.x < (rec.x + rec.w)) && (point.y >= rec.y) && (point.y < (rec.y + rec.h))
-    {
-    	collision = true	
-    }
-
-    return collision
-}
-
-
-
-check_collision_rectangles :: proc(rec1 : shape.Rectangle, rec2 : shape.Rectangle) -> bool
-{
-	collision := false
-
-   if ((rec1.x < (rec2.x + rec2.w) && (rec1.x + rec1.w) > rec2.x) &&
-       (rec1.y < (rec2.y + rec2.h) && (rec1.y + rec1.h) > rec2.y)) 
-	{
-   		collision = true
-	}
-
-   return collision;
-}
-
-@(export)
-game_memory_size :: proc() -> int
-{
-	return size_of(g_state)
-}
-
-
-@(export)
-game_memory_ptr :: proc() -> rawptr
-{
-	return g_state
-}
-
-
-
-entity_move :: proc(entity: ^Entity, move_amount_x, dt: f32)
-{
-	entity.rectangle.x += move_amount_x * dt * g_state.dbg_speed_multiplier * g_state.speed_multiplier_difficulty
-}
-
-
 
 
 animation_frames_alligator := [?]Sprite_Clip_Name{ .Alligator_Mouth_Closed, .Alligator_Mouth_Open }
@@ -435,6 +388,54 @@ timer_crocodile_peek: f32
 timer_crocodile_attack: f32
 
 
+check_collision_point_rectangle :: proc(point : [2]f32, rec : shape.Rectangle) -> bool
+{
+
+    collision := false
+
+    if (point.x >= rec.x) && (point.x < (rec.x + rec.w)) && (point.y >= rec.y) && (point.y < (rec.y + rec.h))
+    {
+    	collision = true	
+    }
+
+    return collision
+}
+
+
+check_collision_rectangles :: proc(rec1 : shape.Rectangle, rec2 : shape.Rectangle) -> bool
+{
+	collision := false
+
+   if ((rec1.x < (rec2.x + rec2.w) && (rec1.x + rec1.w) > rec2.x) &&
+       (rec1.y < (rec2.y + rec2.h) && (rec1.y + rec1.h) > rec2.y)) 
+	{
+   		collision = true
+	}
+
+   return collision;
+}
+
+@(export)
+game_memory_size :: proc() -> int
+{
+	return size_of(g_state)
+}
+
+
+@(export)
+game_memory_ptr :: proc() -> rawptr
+{
+	return g_state
+}
+
+
+
+entity_move :: proc(entity: ^Entity, move_amount_x, dt: f32)
+{
+	entity.rectangle.x += move_amount_x * dt * g_state.dbg_speed_multiplier * g_state.speed_multiplier_difficulty
+}
+
+
 move_entities_and_wrap :: proc(entities: []Entity, dt: f32)
 {
 	for &entity in entities
@@ -538,6 +539,8 @@ game_init :: proc()
 	g_state.lives = 3
 
 	g_state.camera.zoom = 1.0
+
+
 
 }
 

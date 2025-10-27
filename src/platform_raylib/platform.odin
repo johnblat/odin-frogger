@@ -304,7 +304,6 @@ init :: proc()
 
 	game.game_init()
 
-
 	for desc in game.texture_load_descriptions
 	{
 		img := rl.LoadImageFromMemory(".png", &desc.png_data[0],  i32(len(desc.png_data)))
