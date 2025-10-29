@@ -57,6 +57,18 @@ Font_Id :: enum pirc.Font_Id
 }
 
 
+Packed_Char :: struct
+{
+	x0, y0, x1, y1:       u16, // rectangle
+	xoff, yoff, xadvance: f32, // glyph info
+	xoff2, yoff2:         f32,
+}
+
+Font :: struct
+{
+	base_size : int,
+	packed_chars : [96]Packed_Char,
+}
 
 Sprite_Data :: union {
 	Sprite_Clip_Name,
@@ -184,7 +196,7 @@ G_State :: struct
 	textures : [Texture_Id]pirc.Texture,
 	// texture_sprite_sheet : pirc.Texture,
 	// texture_background   : pirc.Texture,
-
+	fonts : [Font_Id]Font,
 	speed_multiplier_difficulty: f32,
 
 	// Font
@@ -275,6 +287,28 @@ lilypads := [5]shape.Rectangle{
 	{6.5,  2, 1, 1},
 	{9.5,  2, 1, 1},
 	{12.5, 2, 1, 1},
+}
+
+
+measure_text :: proc(text: string, font: Font) -> [2]f32 
+{
+	result: [2]f32 = {0, cast(f32)font.base_size}
+	width: f32 = 0.0
+
+	for c in text 
+	{
+		if c < ' ' || c > '~' 
+		{
+			continue // skip unsupported chars
+		}
+
+		index := cast(int)(c - ' ')
+		glyph := font.packed_chars[index]
+		width += glyph.xadvance
+	}
+
+	result.x = width
+	return result
 }
 
 

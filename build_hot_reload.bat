@@ -51,7 +51,7 @@ echo %PDB_NUMBER% > %GAME_PDBS_DIR%\pdb_number
 :: monitors this file and does the hot reload when it changes.
 echo Building %name%.dll
 :: odin build src -vet-unused -vet-unused-variables -vet-unused-imports -vet-shadowing -debug -define:RAYLIB_SHARED=true -build-mode:dll -out:%OUT_DIR%/%name%.dll -pdb-name:%GAME_PDBS_DIR%\%name%_%PDB_NUMBER%.pdb > nul
-odin build src -debug -define:RAYLIB_SHARED=true -build-mode:dll -out:%OUT_DIR%/%name%.dll -pdb-name:%GAME_PDBS_DIR%\%name%_%PDB_NUMBER%.pdb > nul
+odin build src\platform_raylib -debug -define:RAYLIB_SHARED=true -build-mode:dll -out:%OUT_DIR%/%name%.dll -pdb-name:%GAME_PDBS_DIR%\%name%_%PDB_NUMBER%.pdb > nul
 IF %ERRORLEVEL% NEQ 0 exit /b 1
 
 :: If game.exe already running: Then only compile game.dll and exit cleanly

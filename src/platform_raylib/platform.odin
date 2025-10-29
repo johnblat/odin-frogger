@@ -297,8 +297,36 @@ init :: proc()
 	for desc in game.font_load_descriptions
 	{
 		p_state.font_map[u32(desc.font_id)] = rl.LoadFontFromMemory(".otf", &desc.font_data[0], i32(len(desc.font_data)), 256, nil, 0)
+		for i, font in p_state.font_map
+		{
+			game.g_state.fonts[desc.font_id].packed_chars[i].x0 = 0
+		}
 	}
 
+}
+
+
+@(export)
+memory_ptr :: proc() -> (platform_memory_ptr : rawptr, game_memory_ptr : rawptr)
+{
+	platform_memory_ptr = p_state
+	game_memory_ptr = game.g_state
+	return
+}
+
+@(export)
+memory_size :: proc() -> int
+{
+	size := size_of(p_state) + size_of(game.g_state)
+	return size
+}
+
+
+@(export)
+hot_reload :: proc(platform_state : rawptr, game_state : rawptr)
+{
+	p_state = (^P_State)platform_state
+	game.g_state = (^G_State)game_state
 }
 
 

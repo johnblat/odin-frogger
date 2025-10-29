@@ -16,15 +16,14 @@ Game_API :: struct
 	api_version: int,
 
 	// api
-	init_platform: proc(),
 	init: proc(),
-	update: proc(),
+	update_and_render: proc(),
 	should_run: proc() -> bool,
-	memory_ptr: proc() -> rawptr,
+	memory_ptr: proc() -> (rawptr, rawptr),
 	memory_size: proc() -> int,
-	hot_reload: proc(mem: rawptr),
+	hot_reload: proc(p_mem: rawptr, g_mem : rawptr),
 	is_build_requested: proc() -> bool,
-	shutdown: proc(),
+	platform_shutdown: proc(),
 	free_memory: proc()
 }
 
@@ -69,7 +68,7 @@ load_game_api :: proc(api_version: int) -> (api: Game_API, ok: bool)
 		return
 	}
 
-	_, is_dynlib_initialize_symbols_ok := dynlib.initialize_symbols(&api, game_dll_name, "game_", "lib")
+	_, is_dynlib_initialize_symbols_ok := dynlib.initialize_symbols(&api, game_dll_name, "", "lib")
 	if !is_dynlib_initialize_symbols_ok
 	{
 		dynlib_error := dynlib.last_error()
@@ -206,7 +205,7 @@ main :: proc()
 				else
 				{
 					append(&old_game_apis, game_api)
-					game_memory := game_api.memory_ptr()
+					platform_memory, game_memory := game_api.memory_ptr()
 					game_api = new_game_api
 					game_api.hot_reload(game_memory)
 				}
