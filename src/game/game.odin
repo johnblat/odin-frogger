@@ -1768,7 +1768,7 @@ root_state_game :: proc()
 				0.7,
 				WHITE,
 				global_game_texture_grid_cell_size,
-				.Left,
+				.Right,
 				.Top,
 				"1-UP"
 			)
@@ -1786,7 +1786,7 @@ root_state_game :: proc()
 				0.7,
 				WHITE,
 				global_game_texture_grid_cell_size,
-				.Left,
+				.Right,
 				.Top,
 				score_text,
 			)

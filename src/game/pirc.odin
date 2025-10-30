@@ -307,6 +307,19 @@ grid_render_text_tprintf_ex :: proc(
 		}
 	}
 
+	switch v_align
+	{
+		case .Center:
+		{
+			aligned_pos.y -= text_dimensions.y/2
+		}
+		case .Top: {}
+		case .Bottom:
+		{
+			aligned_pos.y -= text_dimensions.y
+		}
+	}
+
 	grid_render_text_tprintf(
 		cmds,
 		aligned_pos,
@@ -334,8 +347,10 @@ grid_render_text_tprintf_ex_with_background :: proc(
 {
 	// TODO make rectangle size the dimensions of the text
 	text := fmt.tprintf(fmt_s, ..args)
-	text_dimensions := measure_text(text, )
-	rectangle := shape.Rectangle { pos.x, pos.y, 200, size}
+	text_dimensions := measure_text(text, g_state.font_infos[font_id], size)
+	rectangle := shape.Rectangle { pos.x, pos.y, text_dimensions.x, size}
+	rectangle.w += 0.8
+
 	grid_render_rectangle_fill_ex(
 		cmds,
 		rectangle,
