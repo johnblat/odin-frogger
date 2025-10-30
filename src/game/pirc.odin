@@ -93,9 +93,12 @@ measure_text :: proc(text: string, font: Font, size: f32) -> [2]f32
 	max_width: f32 = 0
 	height: f32 = cast(f32)font.line_height * scale
 
-	for c in text {
-		if c == '\n' {
-			if width > max_width {
+	for c in text 
+	{
+		if c == '\n' 
+		{
+			if width > max_width 
+			{
 				max_width = width
 			}
 			width = 0
@@ -103,7 +106,8 @@ measure_text :: proc(text: string, font: Font, size: f32) -> [2]f32
 			continue
 		}
 
-		if c < ' ' || c > '~' {
+		if c < ' ' || c > '~' 
+		{
 			continue // skip unsupported characters
 		}
 
@@ -112,7 +116,8 @@ measure_text :: proc(text: string, font: Font, size: f32) -> [2]f32
 		width += glyph.xadvance * scale
 	}
 
-	if width > max_width {
+	if width > max_width 
+	{
 		max_width = width
 	}
 
@@ -328,6 +333,8 @@ grid_render_text_tprintf_ex_with_background :: proc(
 )
 {
 	// TODO make rectangle size the dimensions of the text
+	text := fmt.tprintf(fmt_s, ..args)
+	text_dimensions := measure_text(text, )
 	rectangle := shape.Rectangle { pos.x, pos.y, 200, size}
 	grid_render_rectangle_fill_ex(
 		cmds,

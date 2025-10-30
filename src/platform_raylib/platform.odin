@@ -321,10 +321,13 @@ init :: proc()
 		game.g_state.font_infos[desc.font_id].line_height = f32(rl_font.baseSize)
 		for i in 0..<rl_font.glyphCount
 		{
-			game.g_state.font_infos[desc.font_id].x0 = rl_font.recs[i].x
-			game.g_state.font_infos[desc.font_id].x1 = rl_font.recs[i].x + rl_font.recs[i].width
-			game.g_state.font_infos[desc.font_id].y0 = rl_font.recs[i].y
-			game.g_state.font_infos[desc.font_id].y1 = rl_font.recs[i].y + rl_font.recs[i].height
+			game.g_state.font_infos[desc.font_id].packed_chars[i].x0 = u16(rl_font.recs[i].x)
+			game.g_state.font_infos[desc.font_id].packed_chars[i].x1 = u16(rl_font.recs[i].x + rl_font.recs[i].width)
+			game.g_state.font_infos[desc.font_id].packed_chars[i].y0 = u16(rl_font.recs[i].y)
+			game.g_state.font_infos[desc.font_id].packed_chars[i].y1 = u16(rl_font.recs[i].y + rl_font.recs[i].height)
+			game.g_state.font_infos[desc.font_id].packed_chars[i].xadvance = f32(rl_font.glyphs[i].advanceX)
+			game.g_state.font_infos[desc.font_id].packed_chars[i].xoff = f32(rl_font.glyphs[i].offsetX)
+			game.g_state.font_infos[desc.font_id].packed_chars[i].yoff = f32(rl_font.glyphs[i].offsetY)
 		}
 	}
 

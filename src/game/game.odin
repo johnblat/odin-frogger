@@ -27,7 +27,8 @@ RED :: [4]u8 { 255, 0, 0, 255 }
 BLACK :: [4]u8 { 0, 0, 0, 255 }
 WHITE :: [4]u8 { 255, 255, 255, 255 }
 
-Direction :: enum {
+Direction :: enum 
+{
 	Up, Down, Left, Right
 }
 
@@ -1841,24 +1842,19 @@ root_state_main_menu :: proc()
 	render_bg_clear(&g_state.render_cmds, 0, 0, 0, 255)
 
 	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 5}
-	title_centered_pos.x -= 3 // only doing this until i get text centering working
 	grid_render_text_tprintf_ex(&g_state.render_cmds, title_centered_pos, g_state.font, 2, {0, 255, 0, 255}, global_game_texture_grid_cell_size, .Center, .Top,"FROGGER")
 	title_centered_pos.y += 2
 
 	if visible
 	{
 		press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
-		press_enter_centered_pos.x -= 4
-		grid_render_text_tprintf(&g_state.render_cmds, press_enter_centered_pos, g_state.font, 0.7, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "press start to play")
+		grid_render_text_tprintf_ex(&g_state.render_cmds, press_enter_centered_pos, g_state.font, 0.7, {255, 255, 255, 255}, global_game_texture_grid_cell_size, .Center, .Top, "press start to play")
 		
-		// rlgrid.draw_text_on_grid_centered(g_state.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_game_texture_grid_cell_size)		
 	}
 
 	credits_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, global_number_grid_cells_axis_y - 3}
-	credits_centered_pos.x -= 3
-	grid_render_text_tprintf(&g_state.render_cmds, credits_centered_pos, g_state.font, 0.3, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "a fandmade frogger remake")
+	grid_render_text_tprintf_ex(&g_state.render_cmds, credits_centered_pos, g_state.font, 0.3, {255, 255, 255, 255}, global_game_texture_grid_cell_size, .Center, .Top, "a fandmade frogger remake")
 	
-	// rlgrid.draw_text_on_grid_centered(g_state.font, "a fanmade frogger remake", credits_centered_pos, 0.3, 0, rl.WHITE, global_game_texture_grid_cell_size)
 
 	credits_centered_pos.y += 0.3
 }
