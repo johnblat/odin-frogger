@@ -1,7 +1,6 @@
 package game
 
 import "../rlgrid"
-import pirc "../pirc"
 import shape "../shape"
 
 global_sprite_sheet_cell_size : f32 = 16
@@ -105,7 +104,7 @@ global_sprite_sheet_clips := [Sprite_Clip_Name]shape.Rectangle {
 draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectangle: shape.Rectangle, grid_unit_size, rotation: f32, flip_x : bool = false, flip_y : bool = false )
 {
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
-	pirc.grid_render_texture_clip(
+	grid_render_texture_clip(
 		cmds = &g_state.render_cmds,
 		tex = g_state.textures[.Sprite_Sheet],
 		src_rect = shape.Rectangle{ rectangle_clip.x, rectangle_clip.y, rectangle_clip.w, rectangle_clip.h },
@@ -136,7 +135,7 @@ draw_sprite_sheet_clip_on_game_texture_grid :: proc(
 		rectangle_clip.w * global_sprite_sheet_cell_size,
 		rectangle_clip.h * global_sprite_sheet_cell_size,
 	}
-	pirc.grid_render_texture_clip(
+	grid_render_texture_clip(
 		cmds = &g_state.render_cmds,
 		tex = g_state.textures[.Sprite_Sheet],
 		src_rect = src_rect,

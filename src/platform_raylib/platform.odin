@@ -6,7 +6,6 @@ import "core:mem"
 import "core:strings"
 
 import rl "vendor:raylib"
-import pirc "../pirc"
 import game "../game"
 
 
@@ -20,7 +19,7 @@ P_State :: struct
 {
 	render_target : rl.RenderTexture,
 	texture_map : map[game.Texture_Id]rl.Texture,
-	font_map : map[pirc.Font_Id]rl.Font,
+	font_map : map[game.Font_Id]rl.Font,
 
 }
 
@@ -310,14 +309,23 @@ init :: proc()
 		p_state.texture_map[desc.tex_id] = rl.LoadTextureFromImage(img)
 		rl.SetTextureFilter(p_state.texture_map[desc.tex_id], rl.TextureFilter.POINT)
 		rl.SetTextureWrap(p_state.texture_map[desc.tex_id], .CLAMP)
-		game.g_state.textures[desc.tex_id].id = u32(desc.tex_id)
+		game.g_state.textures[desc.tex_id].id = desc.tex_id
 		game.g_state.textures[desc.tex_id].w = f32(p_state.texture_map[desc.tex_id].width)
 		game.g_state.textures[desc.tex_id].h = f32(p_state.texture_map[desc.tex_id].height)
 	}
 
 	for desc in game.font_load_descriptions
 	{
-		p_state.font_map[u32(desc.font_id)] = rl.LoadFontFromMemory(".otf", &desc.font_data[0], i32(len(desc.font_data)), 256, nil, 0)
+		p_state.font_map[desc.font_id] = rl.LoadFontFromMemory(".otf", &desc.font_data[0], i32(len(desc.font_data)), 256, nil, 0)
+		rl_font := p_state.font_map[desc.font_id]
+		game.g_state.font_infos[desc.font_id].line_height = f32(rl_font.baseSize)
+		for i in 0..<rl_font.glyphCount
+		{
+			game.g_state.font_infos[desc.font_id].x0 = rl_font.recs[i].x
+			game.g_state.font_infos[desc.font_id].x1 = rl_font.recs[i].x + rl_font.recs[i].width
+			game.g_state.font_infos[desc.font_id].y0 = rl_font.recs[i].y
+			game.g_state.font_infos[desc.font_id].y1 = rl_font.recs[i].y + rl_font.recs[i].height
+		}
 	}
 
 }
@@ -367,29 +375,29 @@ update_and_render :: proc()
 	{
 		switch cmd in cmd
 		{
-			case pirc.Cmd_Clear:
+			case game.Cmd_Clear:
 			{
 				color := transmute(rl.Color)cmd.color
 				rl.ClearBackground(color)
 			}
-			case pirc.Cmd_Line:
+			case game.Cmd_Line:
 			{
 				color := transmute(rl.Color)cmd.color
 				rl.DrawLineEx([2]f32{cmd.x1, cmd.y1}, [2]f32{cmd.x2, cmd.y2}, cmd.thick, color)
 			}
-			case pirc.Cmd_Rectangle_Fill:
+			case game.Cmd_Rectangle_Fill:
 			{
 				rectangle := transmute(rl.Rectangle)cmd.rectangle
 				color := transmute(rl.Color)cmd.color
 				rl.DrawRectangleRec(rectangle, color)
 			}
-			case pirc.Cmd_Rectangle_Lines:
+			case game.Cmd_Rectangle_Lines:
 			{
 				rectangle := transmute(rl.Rectangle)cmd.rectangle
 				color := transmute(rl.Color)cmd.color
 				rl.DrawRectangleLinesEx(rectangle, cmd.thick, color)
 			}
-			case pirc.Cmd_Text:
+			case game.Cmd_Text:
 			{
 				rl_font := p_state.font_map[cmd.font]
 				ctext := fmt.ctprintf(cmd.text)
@@ -397,7 +405,7 @@ update_and_render :: proc()
 				rl.DrawTextEx(rl_font, ctext, cmd.pos, cmd.size, 1, color)
 
 			}
-			case pirc.Cmd_Texture_Clip:
+			case game.Cmd_Texture_Clip:
 			{
 				tex := p_state.texture_map[game.Texture_Id(cmd.tex_id)]
 				src := transmute(rl.Rectangle)cmd.src_rect

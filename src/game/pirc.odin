@@ -1,4 +1,4 @@
-package pirc
+package game
 
 // PIRC = Platform Independent Render Commands
 
@@ -8,16 +8,12 @@ import "core:fmt"
 import "../shape"
 
 
-Texture_Id :: u32
-
-
-Font_Id :: u32
 
 
 
 Texture :: struct 
 {
-	id : u32,
+	id : Texture_Id,
 	name : string,
 	w, h : f32,
 }
@@ -87,6 +83,42 @@ Cmd :: union
 
 V_Alignment :: enum { Top, Center, Bottom }
 H_Alignment :: enum { Left, Center, Right }
+
+
+measure_text :: proc(text: string, font: Font, size: f32) -> [2]f32 
+{
+	scale := size / cast(f32)font.line_height
+
+	width: f32 = 0
+	max_width: f32 = 0
+	height: f32 = cast(f32)font.line_height * scale
+
+	for c in text {
+		if c == '\n' {
+			if width > max_width {
+				max_width = width
+			}
+			width = 0
+			height += cast(f32)font.line_height * scale
+			continue
+		}
+
+		if c < ' ' || c > '~' {
+			continue // skip unsupported characters
+		}
+
+		index := cast(int)(c - ' ')
+		glyph := font.packed_chars[index]
+		width += glyph.xadvance * scale
+	}
+
+	if width > max_width {
+		max_width = width
+	}
+
+	return [2]f32{max_width, height}
+}
+
 
 
 render_bg_clear :: proc(cmds : ^[dynamic]Cmd, r, g, b, a : u8)
@@ -251,9 +283,28 @@ grid_render_text_tprintf_ex :: proc(
 )
 {
 	// TODO: handle alignment
+	text := fmt.tprintf(fmt_s, ..args)
+	font_info := g_state.font_infos[font_id]
+	text_dimensions := measure_text(text, font_info, size)
+
+	aligned_pos := pos
+	
+	switch h_align
+	{
+		case .Center:
+		{
+			aligned_pos.x -= text_dimensions.x/2
+		}
+		case .Left: {}
+		case .Right:
+		{
+			aligned_pos.x -= text_dimensions.x
+		}
+	}
+
 	grid_render_text_tprintf(
 		cmds,
-		pos,
+		aligned_pos,
 		font_id,
 		size,
 		color,
@@ -388,3 +439,5 @@ grid_render_rectangle_fill_ex :: proc(
 		color.r, color.g, color.b, color.a
 	)
 }
+
+

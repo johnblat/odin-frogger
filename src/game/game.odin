@@ -6,7 +6,6 @@ import "core:mem"
 import "core:strings"
 import "core:c"
 
-import pirc "../pirc"
 import shape "../shape"
 
 
@@ -48,13 +47,13 @@ Font_Load_Description :: struct
 }
 
 
-Texture_Id :: enum pirc.Texture_Id
+Texture_Id :: enum
 {
 	Background,
 	Sprite_Sheet,
 }
 
-Font_Id :: enum pirc.Font_Id
+Font_Id :: enum
 {
 	Joystix,
 }
@@ -125,6 +124,20 @@ Entity :: struct
 }
 
 
+Packed_Char :: struct {
+	x0, y0, x1, y1:       u16,
+	xoff, yoff, xadvance: f32,
+	xoff2, yoff2:         f32,
+}
+
+
+Font :: struct
+{
+	packed_chars :[96]Packed_Char,
+	line_height :f32,
+}
+
+
 
 
 Root_State :: enum {
@@ -189,12 +202,13 @@ G_State :: struct
 	input_state : Input_State,
 
 	// Spritesheets
-	textures : [Texture_Id]pirc.Texture,
+	textures : [Texture_Id]Texture,
 
 	speed_multiplier_difficulty: f32,
 
 	// Font
-	font : pirc.Font_Id,
+	font : Font_Id,
+	font_infos : [Font_Id]Font,
 
 	// DEBUG
 	dbg_show_grid : bool,
@@ -252,7 +266,7 @@ G_State :: struct
 
 	last_cycle_completion_in_seconds : i32,
 
-	render_cmds : [dynamic]pirc.Cmd,
+	render_cmds : [dynamic]Cmd,
 
 	camera : Camera,
 
@@ -386,6 +400,7 @@ current_crocodile_lilypad_id_index := 0
 timer_crocodile_inactive: f32
 timer_crocodile_peek: f32
 timer_crocodile_attack: f32
+
 
 
 check_collision_point_rectangle :: proc(point : [2]f32, rec : shape.Rectangle) -> bool
@@ -1469,12 +1484,12 @@ root_state_game :: proc()
 		// }
 
 
-		pirc.render_bg_clear(&g_state.render_cmds, 200,200,200,255)
+		render_bg_clear(&g_state.render_cmds, 200,200,200,255)
 
 
 		{ // draw background
 			scale : f32 =  global_game_texture_grid_cell_size / global_sprite_sheet_cell_size
-			pirc.render_texture_ex(&g_state.render_cmds, g_state.textures[.Background], [2]f32{0,0}, scale)
+			render_texture_ex(&g_state.render_cmds, g_state.textures[.Background], [2]f32{0,0}, scale)
 		}
 
 		should_display_last_cycle_time := countdown_is_playing(g_state.countdown_timer_display_last_cycle_completion)
@@ -1482,7 +1497,7 @@ root_state_game :: proc()
 		{ 
 			text := fmt.tprint("TIME:", g_state.last_cycle_completion_in_seconds)
 			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
-			pirc.grid_render_text_tprintf_ex_with_background(
+			grid_render_text_tprintf_ex_with_background(
 				&g_state.render_cmds,
 				center_screen_on_median,
 				g_state.font,
@@ -1500,7 +1515,7 @@ root_state_game :: proc()
 		if should_display_game_over 
 		{ 
 			center_screen_on_median := [2]f32{global_number_grid_cells_axis_x / 2, 8.5}
-			pirc.grid_render_text_tprintf_ex_with_background(
+			grid_render_text_tprintf_ex_with_background(
 				&g_state.render_cmds,
 				center_screen_on_median,
 				g_state.font,
@@ -1710,7 +1725,7 @@ root_state_game :: proc()
 				render_x := x * global_game_texture_grid_cell_size
 				render_start_y : f32 = 0
 				render_end_y := game_resolution_height
-				pirc.render_line(&g_state.render_cmds, render_x, render_start_y, render_x, render_end_y, 1, 255, 255, 255, 255)
+				render_line(&g_state.render_cmds, render_x, render_start_y, render_x, render_end_y, 1, 255, 255, 255, 255)
 				// rl.DrawLineV([2]f32{render_x, render_start_y}, [2]f32{render_x, render_end_y}, rl.WHITE)
 			}
 
@@ -1719,7 +1734,7 @@ root_state_game :: proc()
 				render_y := y * global_game_texture_grid_cell_size
 				render_start_x : f32 = -g_state.camera.offset.x
 				render_end_x := game_resolution_width
-				pirc.render_line(&g_state.render_cmds, render_start_x, render_y, render_end_x, render_y, 1, 255, 255, 255, 255)
+				render_line(&g_state.render_cmds, render_start_x, render_y, render_end_x, render_y, 1, 255, 255, 255, 255)
 				// rl.DrawLineV([2]f32{render_start_x, render_y}, [2]f32{render_end_x, render_y}, rl.WHITE)
 			}
 		}
@@ -1728,7 +1743,7 @@ root_state_game :: proc()
 		if g_state.dbg_show_entity_bounding_rectangles
 		{	
 			frogger_rectangle := shape.Rectangle{g_state.frogger_pos.x, g_state.frogger_pos.y, 1, 1}
-			pirc.grid_render_rectangle_lines(&g_state.render_cmds, frogger_rectangle, global_game_texture_grid_cell_size, 4, color = [4]u8{0,255,0,255})
+			grid_render_rectangle_lines(&g_state.render_cmds, frogger_rectangle, global_game_texture_grid_cell_size, 4, color = [4]u8{0,255,0,255})
 			// rlgrid.draw_rectangle_lines_on_grid(frogger_rectangle, 4, GREEN, global_game_texture_grid_cell_size)
 		}
 
@@ -1745,7 +1760,7 @@ root_state_game :: proc()
 
 			one_up_pos := [2]f32{4,0}
 
-			pirc.grid_render_text_tprintf_ex(
+			grid_render_text_tprintf_ex(
 				&g_state.render_cmds,
 				one_up_pos,
 				g_state.font,
@@ -1763,7 +1778,7 @@ root_state_game :: proc()
 				one_up_pos.y + heads_up_display_font_size
 			}
 
-			pirc.grid_render_text_tprintf_ex(
+			grid_render_text_tprintf_ex(
 				&g_state.render_cmds,
 				score_text_pos,
 				g_state.font,
@@ -1787,7 +1802,7 @@ root_state_game :: proc()
 			{
 				color = RED
 			}
-			pirc.grid_render_rectangle_fill_ex(
+			grid_render_rectangle_fill_ex(
 				&g_state.render_cmds,
 				timer_rectangle,
 				global_game_texture_grid_cell_size,
@@ -1823,25 +1838,25 @@ root_state_main_menu :: proc()
 		frogger_reset()
 	}
 
-	pirc.render_bg_clear(&g_state.render_cmds, 0, 0, 0, 255)
+	render_bg_clear(&g_state.render_cmds, 0, 0, 0, 255)
 
 	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 5}
 	title_centered_pos.x -= 3 // only doing this until i get text centering working
-	pirc.grid_render_text_tprintf(&g_state.render_cmds, title_centered_pos, g_state.font, 2, {0, 255, 0, 255}, global_game_texture_grid_cell_size, "FROGGER")
+	grid_render_text_tprintf_ex(&g_state.render_cmds, title_centered_pos, g_state.font, 2, {0, 255, 0, 255}, global_game_texture_grid_cell_size, .Center, .Top,"FROGGER")
 	title_centered_pos.y += 2
 
 	if visible
 	{
 		press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
 		press_enter_centered_pos.x -= 4
-		pirc.grid_render_text_tprintf(&g_state.render_cmds, press_enter_centered_pos, g_state.font, 0.7, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "press start to play")
+		grid_render_text_tprintf(&g_state.render_cmds, press_enter_centered_pos, g_state.font, 0.7, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "press start to play")
 		
 		// rlgrid.draw_text_on_grid_centered(g_state.font, "press enter to play", press_enter_centered_pos, 0.7, 0, rl.WHITE, global_game_texture_grid_cell_size)		
 	}
 
 	credits_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, global_number_grid_cells_axis_y - 3}
 	credits_centered_pos.x -= 3
-	pirc.grid_render_text_tprintf(&g_state.render_cmds, credits_centered_pos, g_state.font, 0.3, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "a fandmade frogger remake")
+	grid_render_text_tprintf(&g_state.render_cmds, credits_centered_pos, g_state.font, 0.3, {255, 255, 255, 255}, global_game_texture_grid_cell_size, "a fandmade frogger remake")
 	
 	// rlgrid.draw_text_on_grid_centered(g_state.font, "a fanmade frogger remake", credits_centered_pos, 0.3, 0, rl.WHITE, global_game_texture_grid_cell_size)
 
