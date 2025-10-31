@@ -26,6 +26,7 @@ GREEN :: [4]u8 { 0, 255, 0, 255 }
 RED :: [4]u8 { 255, 0, 0, 255 }
 BLACK :: [4]u8 { 0, 0, 0, 255 }
 WHITE :: [4]u8 { 255, 255, 255, 255 }
+YELLOW :: [4]u8 { 255, 255, 0, 255}
 
 Direction :: enum 
 {
@@ -52,8 +53,8 @@ Texture_Id :: enum
 {
 	Arcade_Background,
 	Arcade_Sprite_Sheet,
-	Apocolypse_Backgroud,
-	Apocolypse_Sprite_Sheet,
+	Pittsburgh_Backgroud,
+	Pittsburgh_Sprite_Sheet,
 	Y97_Background,
 	Y97_Sprite_Sheet,
 }
@@ -127,8 +128,8 @@ Theme :: struct
 Theme_Id :: enum
 {
 	Arcade,
-	Apocolypse,
 	Y97,
+	Pittsburgh,
 }
 
 
@@ -303,8 +304,8 @@ g_state: ^G_State
 texture_load_descriptions := [?] Texture_Load_Description {
 	{ tex_id = .Arcade_Background, name = "retro arcade background", png_data = #load("../../assets/frogger_background_modified.png") },
 	{ tex_id = .Arcade_Sprite_Sheet, name = "retro arcade sprites", png_data = #load("../../assets/frogger_sprite_sheet_modified.png") },
-	{ tex_id = .Apocolypse_Backgroud, name = "apocolypse background", png_data = #load("../../assets/frogger_background_colton.png")},
-	{ tex_id = .Apocolypse_Sprite_Sheet, name = "apocolypse sprites", png_data = #load("../../assets/frogger_sprite_sheet_colton.png")},
+	{ tex_id = .Pittsburgh_Backgroud, name = "Pittsburgh background", png_data = #load("../../assets/frogger_background_colton.png")},
+	{ tex_id = .Pittsburgh_Sprite_Sheet, name = "Pittsburgh sprites", png_data = #load("../../assets/frogger_sprite_sheet_colton.png")},
 	{ tex_id = .Y97_Background, name = "1997 background", png_data = #load("../../assets/frogger_97_background.png") },	
 	{ tex_id = .Y97_Sprite_Sheet, name = "1997 sprite sheet", png_data = #load("../../assets/frogger_97_sprite_sheet.png")},
 }
@@ -317,8 +318,8 @@ font_load_descriptions := [?] Font_Load_Description {
 
 saved_themes := [Theme_Id] Theme {
 	.Arcade = { name = "Arcade", background_tex_id = .Arcade_Background, sprite_sheet_tex_id = .Arcade_Sprite_Sheet },
-	.Apocolypse = { name = "Apocolypse", background_tex_id = .Apocolypse_Backgroud, sprite_sheet_tex_id = .Apocolypse_Sprite_Sheet },
-	.Y97 = { name = "Year 1997", background_tex_id = .Y97_Background, sprite_sheet_tex_id = .Y97_Sprite_Sheet }
+	.Y97 = { name = "Y2k-3", background_tex_id = .Y97_Background, sprite_sheet_tex_id = .Y97_Sprite_Sheet },
+	.Pittsburgh = { name = "Pittsburgh", background_tex_id = .Pittsburgh_Backgroud, sprite_sheet_tex_id = .Pittsburgh_Sprite_Sheet },
 }
 
 
@@ -1895,16 +1896,99 @@ root_state_main_menu :: proc()
 		frogger_reset()
 	}
 
+
+	if key_is_just_pressed(.LEFT)
+	{
+		active_theme_i := i32(g_state.active_theme)
+		active_theme_i -= 1
+		active_theme_i = active_theme_i %% len(Theme_Id)
+		g_state.active_theme = Theme_Id(active_theme_i)
+	}
+	if key_is_just_pressed(.RIGHT)
+	{
+		active_theme_i := i32(g_state.active_theme)
+		active_theme_i += 1
+		active_theme_i = active_theme_i %% len(Theme_Id)
+		g_state.active_theme = Theme_Id(active_theme_i)		
+	}
+
 	render_bg_clear(&g_state.render_cmds, 0, 0, 0, 255)
 
-	title_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 5}
-	grid_render_text_tprintf_ex(&g_state.render_cmds, title_centered_pos, g_state.font, 2, {0, 255, 0, 255}, global_game_texture_grid_cell_size, .Center, .Top,"FROGGER")
-	title_centered_pos.y += 2
+	cursor := [2]f32{global_number_grid_cells_axis_x / 2, 1}
+	grid_render_text_tprintf_ex(&g_state.render_cmds, cursor, g_state.font, 2, {0, 255, 0, 255}, global_game_texture_grid_cell_size, .Center, .Top,"FROGGER")
+	cursor.y += 3
+
+
+	grid_render_text_tprintf_ex(
+		&g_state.render_cmds,
+		cursor,
+		g_state.font,
+		0.5,
+		YELLOW,
+		global_game_texture_grid_cell_size,
+		.Center,
+		.Center,
+		"select theme"
+	)
+
+	cursor.x = 3
+
+	cursor.y += 1
+
+	theme_dimensions := [2]f32{2.7, 3}
+	extra_padding : f32 = 0.2
+	for theme, i in saved_themes
+	{
+		bg_tex_id := theme.background_tex_id
+		src_rect := shape.Rectangle{0,0, g_state.textures[bg_tex_id].w, g_state.textures[bg_tex_id].h}
+		dst_rect := shape.Rectangle{cursor.x + f32(i) * (theme_dimensions.x + extra_padding), cursor.y, theme_dimensions.x, theme_dimensions.y} 
+		if i == g_state.active_theme
+		{
+			highlight_rect := dst_rect
+			highlight_rect.y -= 0.1
+			highlight_rect.x -= 0.1
+			highlight_rect.w += 0.2
+			highlight_rect.h += 0.2
+			grid_render_rectangle_fill_ex(
+				&g_state.render_cmds,
+				highlight_rect,
+				global_game_texture_grid_cell_size,
+				YELLOW,
+			)
+		}
+		grid_render_texture_clip(
+			&g_state.render_cmds,
+			g_state.textures[bg_tex_id],
+			src_rect,
+			dst_rect,
+			1,
+			global_game_texture_grid_cell_size,
+		)
+	}
+
+	cursor.y += theme_dimensions.y + 1
+	cursor.x = global_number_grid_cells_axis_x/2
+
+	active_theme := saved_themes[g_state.active_theme]
+	theme_name := active_theme.name
+	grid_render_text_tprintf_ex(
+		&g_state.render_cmds,
+		cursor,
+		g_state.font,
+		1,
+		YELLOW,
+		global_game_texture_grid_cell_size,
+		.Center,
+		.Center,
+		theme_name
+	)
+
+	cursor.y += 2
+
 
 	if visible
 	{
-		press_enter_centered_pos := [2]f32{global_number_grid_cells_axis_x / 2, 8}
-		grid_render_text_tprintf_ex(&g_state.render_cmds, press_enter_centered_pos, g_state.font, 0.7, {255, 255, 255, 255}, global_game_texture_grid_cell_size, .Center, .Top, "press start to play")
+		grid_render_text_tprintf_ex(&g_state.render_cmds, cursor, g_state.font, 0.7, {255, 255, 255, 255}, global_game_texture_grid_cell_size, .Center, .Top, "press start to play")
 		
 	}
 

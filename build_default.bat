@@ -1,3 +1,3 @@
 echo Building game.exe
 
-odin build  src/main_default -debug -out:game.exe -vet-shadowing
+odin build  src/platform_raylib/main -out:build/release/frogger.exe
