@@ -20,7 +20,6 @@ P_State :: struct
 	render_target : rl.RenderTexture,
 	texture_map : map[game.Texture_Id]rl.Texture,
 	font_map : map[game.Font_Id]rl.Font,
-
 }
 
 
