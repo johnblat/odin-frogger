@@ -160,6 +160,7 @@ render_texture :: proc(cmds : ^[dynamic]Cmd, texture : Texture, pos : [2]f32, co
 	append(cmds, cmd)
 }
 
+
 render_texture_ex :: proc(
 	cmds : ^[dynamic]Cmd,
 	texture : Texture,
@@ -241,7 +242,8 @@ render_texture_clip_ex :: proc(
 render_text_tprintf :: proc(cmds : ^[dynamic]Cmd, pos : [2]f32, font_id : Font_Id, size : f32, color : [4]u8 = { 255, 255, 255, 255 }, fmt_s : string, args : ..any)
 {
 	text := fmt.tprintf(fmt_s, ..args)
-	cmd := Cmd_Text { pos = pos,
+	cmd := Cmd_Text { 
+		pos = pos,
 		size = size,
 		font = font_id,
 		color = color,

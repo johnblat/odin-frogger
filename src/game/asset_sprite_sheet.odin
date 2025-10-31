@@ -104,10 +104,18 @@ global_sprite_sheet_clips := [Sprite_Clip_Name]shape.Rectangle {
 draw_sprite_sheet_clip_on_grid :: proc(sprite_clip: Sprite_Clip_Name, dst_rectangle: shape.Rectangle, grid_unit_size, rotation: f32, flip_x : bool = false, flip_y : bool = false )
 {
 	rectangle_clip := global_sprite_sheet_clips[sprite_clip]
+	theme := saved_themes[g_state.active_theme]
+	tex_id := theme.sprite_sheet_tex_id
+	src_clip_rect := rectangle_clip
+	src_clip_rect.x *= global_sprite_sheet_cell_size
+	src_clip_rect.y *= global_sprite_sheet_cell_size
+	src_clip_rect.w *= global_sprite_sheet_cell_size
+	src_clip_rect.h *= global_sprite_sheet_cell_size
+
 	grid_render_texture_clip(
 		cmds = &g_state.render_cmds,
-		tex = g_state.textures[.Sprite_Sheet],
-		src_rect = shape.Rectangle{ rectangle_clip.x, rectangle_clip.y, rectangle_clip.w, rectangle_clip.h },
+		tex = g_state.textures[tex_id],
+		src_rect = src_clip_rect,
 		dst_rect = dst_rectangle,
 		src_grid_unit_size = global_sprite_sheet_cell_size,
 		dst_grid_unit_size = grid_unit_size,
@@ -135,9 +143,11 @@ draw_sprite_sheet_clip_on_game_texture_grid :: proc(
 		rectangle_clip.w * global_sprite_sheet_cell_size,
 		rectangle_clip.h * global_sprite_sheet_cell_size,
 	}
+	theme := saved_themes[g_state.active_theme]
+	tex_id := theme.sprite_sheet_tex_id
 	grid_render_texture_clip(
 		cmds = &g_state.render_cmds,
-		tex = g_state.textures[.Sprite_Sheet],
+		tex = g_state.textures[tex_id],
 		src_rect = src_rect,
 		dst_rect = dst_rectangle,
 		src_grid_unit_size = global_sprite_sheet_cell_size,

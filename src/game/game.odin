@@ -50,8 +50,12 @@ Font_Load_Description :: struct
 
 Texture_Id :: enum
 {
-	Background,
-	Sprite_Sheet,
+	Arcade_Background,
+	Arcade_Sprite_Sheet,
+	Apocolypse_Backgroud,
+	Apocolypse_Sprite_Sheet,
+	Y97_Background,
+	Y97_Sprite_Sheet,
 }
 
 Font_Id :: enum
@@ -112,6 +116,21 @@ Snake_Behavior_State :: struct
 	snake_mode : Snake_Mode,
 	on_entity_id : int,
 }
+
+
+Theme :: struct
+{
+	name : string,
+	background_tex_id, sprite_sheet_tex_id : Texture_Id
+}
+
+Theme_Id :: enum
+{
+	Arcade,
+	Apocolypse,
+	Y97,
+}
+
 
 
 Entity :: struct
@@ -205,6 +224,8 @@ G_State :: struct
 	// Spritesheets
 	textures : [Texture_Id]Texture,
 
+	active_theme : Theme_Id,
+
 	speed_multiplier_difficulty: f32,
 
 	// Font
@@ -275,18 +296,31 @@ G_State :: struct
 
 }
 
+
 g_state: ^G_State
 
 
 texture_load_descriptions := [?] Texture_Load_Description {
-	{ tex_id = .Background, name = "retro arcade background", png_data = #load("../../assets/frogger_background_modified.png") },
-	{ tex_id = .Sprite_Sheet, name = "retro arcade sprites", png_data = #load("../../assets/frogger_sprite_sheet_modified.png") },
+	{ tex_id = .Arcade_Background, name = "retro arcade background", png_data = #load("../../assets/frogger_background_modified.png") },
+	{ tex_id = .Arcade_Sprite_Sheet, name = "retro arcade sprites", png_data = #load("../../assets/frogger_sprite_sheet_modified.png") },
+	{ tex_id = .Apocolypse_Backgroud, name = "apocolypse background", png_data = #load("../../assets/frogger_background_colton.png")},
+	{ tex_id = .Apocolypse_Sprite_Sheet, name = "apocolypse sprites", png_data = #load("../../assets/frogger_sprite_sheet_colton.png")},
+	{ tex_id = .Y97_Background, name = "1997 background", png_data = #load("../../assets/frogger_97_background.png") },	
+	{ tex_id = .Y97_Sprite_Sheet, name = "1997 sprite sheet", png_data = #load("../../assets/frogger_97_sprite_sheet.png")},
 }
 
 
 font_load_descriptions := [?] Font_Load_Description {
 	{ font_id = .Joystix, name = "joystix", font_data = #load("../../assets/joystix monospace.otf")}
 }
+
+
+saved_themes := [Theme_Id] Theme {
+	.Arcade = { name = "Arcade", background_tex_id = .Arcade_Background, sprite_sheet_tex_id = .Arcade_Sprite_Sheet },
+	.Apocolypse = { name = "Apocolypse", background_tex_id = .Apocolypse_Backgroud, sprite_sheet_tex_id = .Apocolypse_Sprite_Sheet },
+	.Y97 = { name = "Year 1997", background_tex_id = .Y97_Background, sprite_sheet_tex_id = .Y97_Sprite_Sheet }
+}
+
 
 
 lilypads := [5]shape.Rectangle{
@@ -533,6 +567,8 @@ game_init :: proc()
 
 	g_state.root_state = .Main_Menu
 
+	g_state.active_theme = .Arcade
+
 	g_state.dbg_show_grid = false
 	g_state.dbg_is_frogger_unkillable = false
 
@@ -560,6 +596,7 @@ game_init :: proc()
 
 }
 
+
 score_increment :: proc(amount: int)
 {
 	old_score := g_state.score
@@ -570,6 +607,7 @@ score_increment :: proc(amount: int)
 		g_state.lives += 1
 	}
 }
+
 
 frogger_reset :: proc()
 {
@@ -609,8 +647,10 @@ root_state_main_menu_enter :: proc()
 	g_state.score = 0
 }
 
+
 root_state_game :: proc()
 {
+
 	entities := entities_by_level[g_state.level_index]
 	otters := otters_by_level[g_state.level_index]
 	otter_spawn_descriptions := otter_spawn_descriptions_by_level[g_state.level_index]
@@ -726,6 +766,20 @@ root_state_game :: proc()
 			{
 				g_state.dbg_timer_lose_life_pause = !g_state.dbg_timer_lose_life_pause
 			}			
+		}
+	}
+
+	{ // switch themes
+		switch_theme_key := Keyboard_Key.TAB
+		if key_is_just_pressed(switch_theme_key)
+		{
+			active_theme_i := int(g_state.active_theme)
+			active_theme_i += 1
+			if active_theme_i > len(Theme_Id) - 1
+			{
+				active_theme_i = 0
+			}
+			g_state.active_theme = Theme_Id(active_theme_i)
 		}
 	}
 
@@ -1490,7 +1544,9 @@ root_state_game :: proc()
 
 		{ // draw background
 			scale : f32 =  global_game_texture_grid_cell_size / global_sprite_sheet_cell_size
-			render_texture_ex(&g_state.render_cmds, g_state.textures[.Background], [2]f32{0,0}, scale)
+			active_theme := saved_themes[g_state.active_theme]
+			bg_tex_id := g_state.textures[active_theme.background_tex_id]
+			render_texture_ex(&g_state.render_cmds, bg_tex_id, [2]f32{0,0}, scale)
 		}
 
 		should_display_last_cycle_time := countdown_is_playing(g_state.countdown_timer_display_last_cycle_completion)
